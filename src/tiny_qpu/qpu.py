@@ -32,9 +32,12 @@ class QubitRegister:
     def state(self):
         return self._state.copy()
     
+    def _qubit_to_bit(self, qubit: int) -> int:
+        """Convert qubit index to bit position (handles ordering)."""
+        return self.num_qubits - 1 - qubit
+    
     def apply_single_gate(self, gate: np.ndarray, qubit: int):
         """Apply single-qubit gate."""
-        # Build full operator via tensor product
         ops = [np.eye(2, dtype=np.complex128) for _ in range(self.num_qubits)]
         ops[qubit] = gate
         full_gate = ops[0]
@@ -44,12 +47,13 @@ class QubitRegister:
     
     def apply_cnot(self, control: int, target: int):
         """Apply CNOT gate."""
+        ctrl_bit = self._qubit_to_bit(control)
+        tgt_bit = self._qubit_to_bit(target)
+        
         new_state = np.zeros_like(self._state)
         for i in range(self.dim):
-            ctrl_bit = (i >> control) & 1
-            if ctrl_bit == 1:
-                # Flip target bit
-                j = i ^ (1 << target)
+            if (i >> ctrl_bit) & 1:
+                j = i ^ (1 << tgt_bit)
                 new_state[j] += self._state[i]
             else:
                 new_state[i] += self._state[i]
@@ -57,28 +61,27 @@ class QubitRegister:
     
     def apply_cz(self, control: int, target: int):
         """Apply CZ gate."""
+        ctrl_bit = self._qubit_to_bit(control)
+        tgt_bit = self._qubit_to_bit(target)
+        
         for i in range(self.dim):
-            ctrl_bit = (i >> control) & 1
-            tgt_bit = (i >> target) & 1
-            if ctrl_bit == 1 and tgt_bit == 1:
+            if ((i >> ctrl_bit) & 1) and ((i >> tgt_bit) & 1):
                 self._state[i] *= -1
     
     def measure(self, qubit: int) -> int:
         """Measure a qubit, collapse state, return result."""
-        # Calculate probabilities
+        bit_pos = self._qubit_to_bit(qubit)
+        
         prob_0 = sum(np.abs(self._state[i])**2 
                      for i in range(self.dim) 
-                     if not (i >> qubit) & 1)
+                     if not (i >> bit_pos) & 1)
         
-        # Sample
         result = np.random.choice([0, 1], p=[prob_0, 1 - prob_0])
         
-        # Collapse state
         for i in range(self.dim):
-            if ((i >> qubit) & 1) != result:
+            if ((i >> bit_pos) & 1) != result:
                 self._state[i] = 0
         
-        # Renormalize
         norm = np.linalg.norm(self._state)
         if norm > 1e-10:
             self._state /= norm
@@ -97,7 +100,6 @@ class QPU:
         >>> print(result.counts)
     """
     
-    # Gate matrices
     GATES = {
         'H': np.array([[1, 1], [1, -1]], dtype=np.complex128) / np.sqrt(2),
         'X': np.array([[0, 1], [1, 0]], dtype=np.complex128),
@@ -115,17 +117,14 @@ class QPU:
         self.program: List[Dict] = []
     
     def reset(self):
-        """Reset QPU state."""
         self.qreg.reset()
         self.creg = [0] * self.num_classical
     
     def load_program(self, filepath: str):
-        """Load quantum assembly from file."""
         with open(filepath, 'r') as f:
             self.load_source(f.read())
     
     def load_source(self, source: str):
-        """Parse quantum assembly source code."""
         self.program = []
         for line in source.split('\n'):
             line = line.split('#')[0].strip()
@@ -136,7 +135,6 @@ class QPU:
                 self.program.append(inst)
     
     def _parse_instruction(self, line: str) -> Optional[Dict]:
-        """Parse a single instruction."""
         parts = line.replace(',', ' ').split()
         op = parts[0].upper()
         
@@ -163,7 +161,6 @@ class QPU:
         return None
     
     def _execute(self, inst: Dict):
-        """Execute a single instruction."""
         op = inst['op']
         
         if op in self.GATES:
@@ -176,14 +173,11 @@ class QPU:
             result = self.qreg.measure(inst['qubit'])
             self.creg[inst['classical']] = result
         elif op == 'RESET':
-            # Measure and flip if needed
             result = self.qreg.measure(inst['qubit'])
             if result == 1:
                 self.qreg.apply_single_gate(self.GATES['X'], inst['qubit'])
-        # BARRIER is a no-op in simulation
     
     def run(self, shots: int = 1024, seed: Optional[int] = None) -> QPUResult:
-        """Execute the loaded program."""
         if seed is not None:
             np.random.seed(seed)
         
@@ -194,7 +188,6 @@ class QPU:
             for inst in self.program:
                 self._execute(inst)
             
-            # Record measurement result
             bitstring = ''.join(str(b) for b in reversed(self.creg))
             counts[bitstring] = counts.get(bitstring, 0) + 1
         
