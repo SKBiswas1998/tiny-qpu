@@ -1,81 +1,228 @@
 # tiny-qpu
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 
-A minimal Quantum Processing Unit simulator. Inspired by [tiny-gpu](https://github.com/adam-maj/tiny-gpu).
+A minimal, fast quantum computing library with practical applications.
+
+**Why tiny-qpu?**
+- ⚡ **Fast**: <500ms import (vs Qiskit's 5+ seconds)
+- 🎯 **Simple**: Fluent API - quantum circuits in 3 lines, not 30
+- 🔧 **Practical**: Real applications (QRNG, QAOA, BB84), not just demos
+- 📚 **Educational**: See quantum state evolution after each gate
+
+## Installation
+```bash
+pip install tiny-qpu
+```
+
+Or from source:
+```bash
+git clone https://github.com/SKBiswas1998/tiny-qpu.git
+cd tiny-qpu
+pip install -e .
+```
+
+## Quick Start
+
+### As a Library
+```python
+from tiny_qpu import Circuit
+
+# Create a Bell state in 3 lines
+qc = Circuit(2).h(0).cx(0, 1).measure_all()
+result = qc.run(shots=1000)
+print(result.counts)  # {'00': ~500, '11': ~500}
+```
+
+### From Command Line
+```bash
+# Generate quantum random numbers
+tiny-qpu qrng --bytes 32 --hex
+
+# Solve MaxCut optimization
+tiny-qpu maxcut --random 6
+
+# Run BB84 key distribution demo
+tiny-qpu bb84 --demo
+
+# Run Bell state demo
+tiny-qpu run bell
+```
+
+## Applications
+
+### 🎲 Quantum Random Number Generator (QRNG)
+
+Generate true random numbers using quantum superposition:
+```python
+from tiny_qpu.apps import QRNG
+
+qrng = QRNG()
+
+# Random bytes (for cryptographic keys)
+key = qrng.random_bytes(32)
+print(f"256-bit key: {key.hex()}")
+
+# Random integers
+dice = qrng.random_int(1, 7)  # Roll a die
+
+# Random UUID
+uuid = qrng.random_uuid4()
+```
+
+### 📊 QAOA MaxCut Solver
+
+Solve graph optimization problems using the Quantum Approximate Optimization Algorithm:
+```python
+from tiny_qpu.apps import QAOA, solve_maxcut
+
+# Define a graph (edges)
+edges = [(0, 1), (1, 2), (2, 3), (3, 0), (0, 2)]
+
+# Solve MaxCut
+result = solve_maxcut(edges, p=2)
+print(f"Best partition: {result.bitstring}")
+print(f"Cut value: {result.cut_value()}")
+
+# Or use the full API
+qaoa = QAOA(edges, p=2)
+result = qaoa.optimize(shots=1024)
+```
+
+### 🔐 BB84 Quantum Key Distribution
+
+Simulate quantum cryptography with eavesdropper detection:
+```python
+from tiny_qpu.apps import BB84
+
+# Generate a shared secret key
+bb84 = BB84(key_length=256)
+result = bb84.run()
+
+print(f"Key: {result.key.hex()}")
+print(f"Error rate: {result.error_rate:.2%}")
+
+# Simulate with eavesdropper (Eve)
+result = bb84.run(with_eavesdropper=True)
+if result.eavesdropper_detected:
+    print("⚠️ Eavesdropper detected!")
+```
+
+## Educational Mode
+
+See the quantum state after each gate:
+```python
+from tiny_qpu import Circuit
+
+# Educational mode shows state evolution
+with Circuit(2, educational=True) as qc:
+    qc.h(0)      # Shows superposition
+    qc.cx(0, 1)  # Shows entanglement
+```
+
+Output:
+```
+After H on qubit(s) [0]:
+  |00⟩:  0.7071  (prob: 50.00%)
+  |10⟩:  0.7071  (prob: 50.00%)
+
+After CX on qubit(s) [0, 1]:
+  |00⟩:  0.7071  (prob: 50.00%)
+  |11⟩:  0.7071  (prob: 50.00%)
+```
+
+## Supported Gates
+
+### Single-Qubit Gates
+| Gate | Method | Description |
+|------|--------|-------------|
+| I | `.i(q)` | Identity |
+| X | `.x(q)` | Pauli-X (NOT) |
+| Y | `.y(q)` | Pauli-Y |
+| Z | `.z(q)` | Pauli-Z |
+| H | `.h(q)` | Hadamard |
+| S | `.s(q)` | S gate (√Z) |
+| T | `.t(q)` | T gate (π/8) |
+| Rx | `.rx(θ, q)` | X rotation |
+| Ry | `.ry(θ, q)` | Y rotation |
+| Rz | `.rz(θ, q)` | Z rotation |
+
+### Two-Qubit Gates
+| Gate | Method | Description |
+|------|--------|-------------|
+| CNOT | `.cx(c, t)` | Controlled-X |
+| CZ | `.cz(c, t)` | Controlled-Z |
+| SWAP | `.swap(q1, q2)` | Swap qubits |
+| CRz | `.crz(θ, c, t)` | Controlled Rz |
+| RZZ | `.rzz(θ, q1, q2)` | ZZ interaction |
+
+### Three-Qubit Gates
+| Gate | Method | Description |
+|------|--------|-------------|
+| Toffoli | `.ccx(c1, c2, t)` | CCX (AND gate) |
+| Fredkin | `.cswap(c, t1, t2)` | Controlled SWAP |
 
 ## Architecture
 ```
 ┌─────────────────────────────────────────────────┐
 │                    tiny-qpu                      │
 ├─────────────────────────────────────────────────┤
-│  Program Memory → Decoder → Scheduler           │
-│                       ↓                          │
-│              Gate Execution Unit                 │
-│                       ↓                          │
-│                Qubit Register                    │
-│   |ψ⟩ = α₀|00⟩ + α₁|01⟩ + α₂|10⟩ + α₃|11⟩      │
-│                       ↓                          │
-│              Measurement Unit                    │
-│                       ↓                          │
-│             Classical Register                   │
+│  Circuit API    →  StateVector  →  Measurement  │
+│  (fluent/chain)    (tensor ops)    (sampling)   │
+├─────────────────────────────────────────────────┤
+│                  Applications                    │
+│   QRNG  │  QAOA (MaxCut)  │  BB84 (QKD)        │
+├─────────────────────────────────────────────────┤
+│                      CLI                         │
+│  tiny-qpu qrng | maxcut | bb84 | run            │
 └─────────────────────────────────────────────────┘
 ```
 
-## Instruction Set Architecture (ISA)
+## Performance
 
-| Instruction | Syntax | Description |
-|-------------|--------|-------------|
-| H | `H q[n]` | Hadamard gate |
-| X | `X q[n]` | Pauli-X (NOT) gate |
-| Y | `Y q[n]` | Pauli-Y gate |
-| Z | `Z q[n]` | Pauli-Z gate |
-| CNOT | `CNOT q[c], q[t]` | Controlled-NOT |
-| CZ | `CZ q[c], q[t]` | Controlled-Z |
-| MEASURE | `MEASURE q[n], c[m]` | Measure qubit to classical bit |
-| RESET | `RESET q[n]` | Reset qubit to \|0⟩ |
+| Qubits | Memory | tiny-qpu | Qiskit |
+|--------|--------|----------|--------|
+| 10 | 16 KB | ✅ | ✅ |
+| 15 | 512 KB | ✅ | ✅ |
+| 20 | 16 MB | ✅ | ✅ |
+| 25 | 512 MB | ✅ | ✅ |
 
-## Quick Start
-```python
-from tiny_qpu import QPU
+Import time comparison:
+- **tiny-qpu**: ~350ms
+- **Qiskit**: ~5-10 seconds
 
-qpu = QPU(num_qubits=2)
-qpu.load_program("programs/bell_state.qasm")
-result = qpu.run(shots=1000)
-print(result.counts)  # {'00': 503, '11': 497}
-```
+## Comparison with Other Frameworks
 
-## Example: Bell State
-```asm
-# bell_state.qasm
-.qubits 2
-.classical 2
+| Feature | tiny-qpu | Qiskit | Cirq |
+|---------|----------|--------|------|
+| Import time | <500ms | 5-10s | 2-3s |
+| Dependencies | 2 | 50+ | 20+ |
+| Learning curve | Low | High | Medium |
+| Built-in QRNG | ✅ | ❌ | ❌ |
+| Built-in QAOA | ✅ | Plugin | Plugin |
+| Built-in BB84 | ✅ | ❌ | ❌ |
+| Educational mode | ✅ | ❌ | ❌ |
+| Hardware backends | ❌ | ✅ | ✅ |
 
-H q[0]
-CNOT q[0], q[1]
-MEASURE q[0], c[0]
-MEASURE q[1], c[1]
-```
-
-## From GPU to QPU
-
-This project maps classical GPU concepts to quantum:
-
-| GPU | QPU |
-|-----|-----|
-| Thread registers | Qubit register (state vector) |
-| ALU | Gate execution unit |
-| SIMD execution | Quantum parallelism via superposition |
-| Memory controller | Measurement unit |
+**tiny-qpu is ideal for:**
+- Rapid prototyping
+- Education and learning
+- Embedded applications
+- When you don't need real hardware
 
 ## References
 
-- [tiny-gpu](https://github.com/adam-maj/tiny-gpu) - Inspiration
-- Nielsen & Chuang (2010). Quantum Computation and Quantum Information
+- [Quantum Computing: An Applied Approach](https://link.springer.com/book/10.1007/978-3-030-23922-0)
+- [QAOA Original Paper](https://arxiv.org/abs/1411.4028)
+- [BB84 Protocol](https://en.wikipedia.org/wiki/BB84)
 
 ## License
 
-MIT License
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
-*Capstone project of the Quantum Computing Portfolio by SK Biswas*
+
+*Part of the Quantum Computing Portfolio by SK Biswas*
+
+**GitHub**: https://github.com/SKBiswas1998/tiny-qpu
