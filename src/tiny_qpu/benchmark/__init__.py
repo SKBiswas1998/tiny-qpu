@@ -269,14 +269,14 @@ class VQEBenchmark:
         result = best_result
         elapsed = time.time() - start
         
-        # Compute ideal state fidelity
+        # Compute ideal state fidelity against Pauli ground state
         ideal_state = self._build_state(result.x)
-        exact_energy, exact_state = self.mol.exact_diag()
-        fidelity = float(np.abs(np.dot(ideal_state.conj(), exact_state)) ** 2)
+        pauli_energy, pauli_ground = self.mol.exact_diag()
+        fidelity = float(np.abs(np.dot(ideal_state.conj(), pauli_ground)) ** 2)
         
         return {
             'energy': result.fun,
-            'exact_energy': exact_energy,
+            'exact_energy': pauli_energy,
             'params': result.x,
             'iterations': getattr(result, 'nit', maxiter),
             'n_evals': self._eval_count,

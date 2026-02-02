@@ -198,6 +198,42 @@ GitHub: https://github.com/SKBiswas1998/tiny-qpu
 
 
 
+
+def cmd_viz(args):
+    """Generate visualizations and animations."""
+    if args.animate:
+        from ..benchmark.animate import QuantumAnimator
+        anim = QuantumAnimator(output_dir=args.output, fps=15)
+        if args.scene == 'all':
+            anim.all_animations()
+        elif args.scene == 'bloch':
+            anim.bloch_sphere_gates()
+        elif args.scene == 'vqe':
+            anim.vqe_optimization()
+        elif args.scene == 'pes':
+            anim.pes_scan(args.molecule or 'H2')
+        elif args.scene == 'noise':
+            anim.noise_degradation()
+        else:
+            anim.all_animations()
+    else:
+        from ..benchmark.visualize import BenchmarkPlotter
+        plotter = BenchmarkPlotter(output_dir=args.output)
+        if args.scene == 'all':
+            plotter.full_report()
+        elif args.scene == 'pes':
+            plotter.potential_energy_surfaces()
+        elif args.scene == 'noise':
+            plotter.noise_analysis(args.molecule or 'H2')
+        elif args.scene == 'ansatz':
+            plotter.ansatz_comparison(args.molecule or 'H2')
+        elif args.scene == 'overview':
+            plotter.molecule_overview()
+        else:
+            plotter.full_report()
+    print(f"Output directory: {args.output}")
+
+
 def cmd_benchmark(args):
     """Run molecular chemistry benchmarks."""
     from ..benchmark import ChemistryBenchmark
@@ -283,6 +319,15 @@ def main():
     vqe_parser.add_argument('--scan', action='store_true', help='PES scan')
     vqe_parser.set_defaults(func=cmd_vqe)
     
+    # Visualization command
+    viz_parser = subparsers.add_parser('viz', help='Generate plots and animations')
+    viz_parser.add_argument('scene', nargs='?', default='all',
+                           help='Scene: all, pes, noise, ansatz, overview, bloch, vqe')
+    viz_parser.add_argument('--animate', '-a', action='store_true', help='Animated GIFs')
+    viz_parser.add_argument('--molecule', '-m', default=None, help='Molecule for plots')
+    viz_parser.add_argument('--output', '-o', default='.', help='Output directory')
+    viz_parser.set_defaults(func=cmd_viz)
+
     # Benchmark command
     bench_parser = subparsers.add_parser('benchmark', help='Chemistry benchmark suite')
     bench_parser.add_argument('--molecule', '-m', default=None, help='Molecule: H2, HeH+, LiH, H4')

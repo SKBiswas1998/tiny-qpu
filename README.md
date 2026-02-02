@@ -139,6 +139,42 @@ tiny_qpu/
 └── visualization.py   # ASCII circuit diagrams
 ```
 
+
+## Visualizations
+
+### Potential Energy Surfaces
+All four molecules showing characteristic potential wells with equilibrium geometries:
+
+![Potential Energy Surfaces](docs/images/pes_curves.png)
+
+### Molecule Benchmark Overview
+Accuracy, runtime, and qubit comparison across all molecules:
+
+![Molecule Overview](docs/images/molecule_overview.png)
+
+### Noise Analysis
+Error growth and fidelity decay under depolarizing noise for H2:
+
+![Noise Analysis](docs/images/noise_H2.png)
+
+### Animations
+
+**VQE Optimization** - Watch the variational optimizer converge to the ground state energy:
+
+![VQE Optimization](docs/images/vqe_optimization.gif)
+
+**Bloch Sphere** - Qubit state evolution through quantum gates (H, X, Z, T, Y):
+
+![Bloch Sphere](docs/images/bloch_sphere.gif)
+
+**H2 Potential Energy Surface Scan** - Bond length sweep revealing the energy minimum:
+
+![PES Scan](docs/images/pes_H2.gif)
+
+**Noise Degradation** - How depolarizing noise destroys quantum state fidelity:
+
+![Noise Degradation](docs/images/noise_degradation.gif)
+
 ## Performance
 
 | Benchmark | Result |

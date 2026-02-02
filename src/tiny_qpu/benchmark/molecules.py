@@ -83,6 +83,7 @@ class MolecularData:
         """Exact diagonalization. Returns (ground energy, ground state)."""
         H = self.to_matrix()
         eigenvalues, eigenvectors = np.linalg.eigh(H)
+        # Nuclear repulsion is a constant offset not in the Pauli terms
         return float(eigenvalues[0]), eigenvectors[:, 0]
     
     def energy_gap(self) -> float:
@@ -207,10 +208,6 @@ def _h2_hamiltonian(R: float) -> MolecularData:
         correlation_energy=d['exact'] - (d['g0'] + d['g1'] + d['g2'] + d['g3']),
     )
     
-    # Verify exact energy matches diagonalization
-    computed_exact = mol.exact_diag()[0]
-    mol.exact_energy = computed_exact
-    
     return mol
 
 
@@ -290,7 +287,6 @@ def _heh_plus_hamiltonian(R: float) -> MolecularData:
         exact_energy=d['exact'],
         description="Simplest heteronuclear molecule. Important in astrochemistry.",
     )
-    mol.exact_energy = mol.exact_diag()[0]
     return mol
 
 
@@ -433,9 +429,30 @@ def _lih_hamiltonian(R: float) -> MolecularData:
         if R <= keys[0]: d = data[keys[0]]
         elif R >= keys[-1]: d = data[keys[-1]]
         else:
-            # Use closest point (interpolation complex for many terms)
-            closest = min(keys, key=lambda k: abs(k - R))
-            d = data[closest]
+            # Linear interpolation between nearest data points
+            for i in range(len(keys) - 1):
+                if keys[i] <= R <= keys[i+1]:
+                    t = (R - keys[i]) / (keys[i+1] - keys[i])
+                    d1, d2 = data[keys[i]], data[keys[i+1]]
+                    # Interpolate terms
+                    all_ops = set()
+                    for ops, _ in d1['terms']:
+                        all_ops.add(ops)
+                    for ops, _ in d2['terms']:
+                        all_ops.add(ops)
+                    interp_terms = []
+                    d1_dict = {op: c for op, c in d1['terms']}
+                    d2_dict = {op: c for op, c in d2['terms']}
+                    for op in all_ops:
+                        c1 = d1_dict.get(op, 0.0)
+                        c2 = d2_dict.get(op, 0.0)
+                        interp_terms.append((op, c1 * (1-t) + c2 * t))
+                    d = {
+                        'terms': interp_terms,
+                        'nuc': d1['nuc'] * (1-t) + d2['nuc'] * t,
+                        'exact': d1['exact'] * (1-t) + d2['exact'] * t,
+                    }
+                    break
     
     # Deduplicate and combine terms
     term_dict = {}
@@ -460,7 +477,6 @@ def _lih_hamiltonian(R: float) -> MolecularData:
         description="Key VQE benchmark. 4-qubit active space from 12-qubit full space.",
         active_space="(2e, 2o) from [1s frozen]",
     )
-    mol.exact_energy = mol.exact_diag()[0]
     return mol
 
 
@@ -560,8 +576,32 @@ def _h4_hamiltonian(R: float) -> MolecularData:
     if R in data:
         d = data[R]
     else:
-        closest = min(data.keys(), key=lambda k: abs(k - R))
-        d = data[closest]
+        keys = sorted(data.keys())
+        if R <= keys[0]: d = data[keys[0]]
+        elif R >= keys[-1]: d = data[keys[-1]]
+        else:
+            for i in range(len(keys) - 1):
+                if keys[i] <= R <= keys[i+1]:
+                    t = (R - keys[i]) / (keys[i+1] - keys[i])
+                    d1, d2 = data[keys[i]], data[keys[i+1]]
+                    all_ops = set()
+                    for ops, _ in d1['terms']:
+                        all_ops.add(ops)
+                    for ops, _ in d2['terms']:
+                        all_ops.add(ops)
+                    interp_terms = []
+                    d1_dict = {op: c for op, c in d1['terms']}
+                    d2_dict = {op: c for op, c in d2['terms']}
+                    for op in all_ops:
+                        c1 = d1_dict.get(op, 0.0)
+                        c2 = d2_dict.get(op, 0.0)
+                        interp_terms.append((op, c1 * (1-t) + c2 * t))
+                    d = {
+                        'terms': interp_terms,
+                        'nuc': d1['nuc'] * (1-t) + d2['nuc'] * t,
+                        'exact': d1['exact'] * (1-t) + d2['exact'] * t,
+                    }
+                    break
     
     term_dict = {}
     for op, coeff in d['terms']:
@@ -581,7 +621,6 @@ def _h4_hamiltonian(R: float) -> MolecularData:
         description="Linear H4 chain. Models strong electron correlation.",
         active_space="(4e, 4o) minimal",
     )
-    mol.exact_energy = mol.exact_diag()[0]
     return mol
 
 
