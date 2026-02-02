@@ -269,21 +269,44 @@ class Circuit:
         if seed is not None:
             np.random.seed(seed)
         
-        # Check if circuit has measurements
+        # Check if measurements are only at the end (can optimize)
         has_measurements = any(op.name == 'MEASURE' for op in self._operations)
         
         if has_measurements:
-            # Run with shots
-            counts: Dict[str, int] = {}
-            for _ in range(shots):
+            # Check if all measurements are at the end (no mid-circuit measurement)
+            found_measure = False
+            mid_circuit_measure = False
+            for op in self._operations:
+                if op.name == 'MEASURE':
+                    found_measure = True
+                elif found_measure and op.name not in ('MEASURE', 'BARRIER'):
+                    mid_circuit_measure = True
+                    break
+            
+            if mid_circuit_measure:
+                # Must run shot-by-shot for mid-circuit measurements
+                counts: Dict[str, int] = {}
+                for _ in range(shots):
+                    state = StateVector(self.num_qubits)
+                    classical = [0] * self.num_classical
+                    self._execute_operations(state, classical)
+                    bitstring = ''.join(str(b) for b in reversed(classical))
+                    counts[bitstring] = counts.get(bitstring, 0) + 1
+                return SimulatorResult(counts=counts)
+            else:
+                # Optimized: run circuit once, sample from statevector
                 state = StateVector(self.num_qubits)
-                classical = [0] * self.num_classical
-                self._execute_operations(state, classical)
-                bitstring = ''.join(str(b) for b in reversed(classical))
-                counts[bitstring] = counts.get(bitstring, 0) + 1
-            return SimulatorResult(counts=counts)
+                # Execute all non-measurement operations
+                for op in self._operations:
+                    if op.name != 'MEASURE':
+                        self._apply_operation(state, op, [0] * self.num_classical)
+                # Sample from final statevector
+                return SimulatorResult(
+                    counts=state.sample(shots),
+                    statevector=state.vector
+                )
         else:
-            # Return statevector directly
+            # No measurements - return statevector directly
             state = StateVector(self.num_qubits)
             self._execute_operations(state, [0] * self.num_classical)
             return SimulatorResult(
@@ -354,8 +377,10 @@ class Circuit:
             state.apply_single_gate(gate_matrix, op.qubits[0])
         elif len(op.qubits) == 2:
             state.apply_two_qubit_gate(gate_matrix, op.qubits[0], op.qubits[1])
+        elif len(op.qubits) == 3:
+            state.apply_three_qubit_gate(gate_matrix, op.qubits[0], op.qubits[1], op.qubits[2])
         else:
-            raise NotImplementedError(f"3+ qubit gates not yet optimized: {op.name}")
+            raise NotImplementedError(f"4+ qubit gates not yet supported: {op.name}")
     
     def _get_gate_matrix(self, op: Operation) -> np.ndarray:
         """Get the gate matrix for an operation."""
@@ -434,3 +459,5 @@ class Circuit:
     def __exit__(self, *args) -> None:
         """Context manager exit."""
         pass
+
+

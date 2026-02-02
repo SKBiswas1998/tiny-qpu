@@ -61,3 +61,10 @@ __all__ = [
     # Submodules
     'apps',
 ]
+
+from . import noise
+from . import error_correction
+
+
+from . import algorithms
+

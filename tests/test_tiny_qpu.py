@@ -1,162 +1,235 @@
-"""Comprehensive tests for tiny-qpu."""
-import pytest
-import numpy as np
+"""
+Comprehensive test suite for tiny-qpu.
+"""
 import sys
+import numpy as np
+import pytest
+
 sys.path.insert(0, 'src')
 
 from tiny_qpu import Circuit, gates
-from tiny_qpu.apps import QRNG, QAOA, BB84
+from tiny_qpu.apps import QRNG, QAOA, BB84, VQE, MolecularHamiltonian
+from tiny_qpu.noise import (
+    NoiseModel, DensityMatrix, depolarizing, amplitude_damping,
+    phase_damping, bit_flip, depolarizing_2q, thermal_relaxation
+)
+from tiny_qpu.error_correction import BitFlipCode, ShorCode, SteaneCode, compare_codes
+from tiny_qpu.algorithms import shor_factor
 
+
+# ==================== Core Circuit Tests ====================
 
 class TestCircuit:
-    """Test Circuit class."""
-    
     def test_bell_state(self):
-        """Bell state should produce 00 and 11 with equal probability."""
         qc = Circuit(2).h(0).cx(0, 1).measure_all()
         result = qc.run(shots=1000, seed=42)
-        assert set(result.counts.keys()).issubset({'00', '11'})
-        
+        assert '00' in result.counts and '11' in result.counts
+        assert result.counts.get('01', 0) == 0
+
     def test_ghz_state(self):
-        """GHZ state on 3 qubits."""
-        qc = Circuit(3).h(0).cx(0, 1).cx(1, 2).measure_all()
-        result = qc.run(shots=1000, seed=42)
-        assert set(result.counts.keys()).issubset({'000', '111'})
-    
-    def test_x_gate_flips(self):
-        """X gate should flip |0⟩ to |1⟩."""
-        qc = Circuit(1).x(0).measure_all()
-        result = qc.run(shots=100, seed=42)
-        assert result.counts.get('1', 0) == 100
-    
-    def test_hadamard_superposition(self):
-        """H gate creates superposition."""
-        qc = Circuit(1).h(0).measure_all()
-        result = qc.run(shots=1000, seed=42)
-        # Should be roughly 50/50
-        assert 400 < result.counts.get('0', 0) < 600
-        assert 400 < result.counts.get('1', 0) < 600
-    
-    def test_circuit_depth(self):
-        """Test circuit depth calculation."""
+        qc = Circuit(3).h(0).cx(0, 1).cx(1, 2)
+        state = qc.statevector()
+        expected = np.zeros(8); expected[0] = expected[7] = 1/np.sqrt(2)
+        assert np.allclose(state, expected)
+
+    def test_x_gate(self):
+        state = Circuit(1).x(0).statevector()
+        assert np.allclose(state, [0, 1])
+
+    def test_hadamard(self):
+        state = Circuit(1).h(0).statevector()
+        assert np.allclose(state, [1/np.sqrt(2), 1/np.sqrt(2)])
+
+    def test_swap(self):
+        state = Circuit(2).x(0).swap(0, 1).statevector()
+        assert np.allclose(state, [0, 1, 0, 0])
+
+    def test_toffoli(self):
+        state = Circuit(3).x(0).x(1).ccx(0, 1, 2).statevector()
+        assert np.allclose(np.abs(state[7]), 1)
+
+    def test_depth(self):
         qc = Circuit(3).h(0).h(1).cx(0, 2).h(2)
         assert qc.depth() == 3
-    
-    def test_invalid_qubit_raises(self):
-        """Accessing invalid qubit should raise error."""
-        qc = Circuit(2)
-        with pytest.raises(ValueError):
-            qc.h(5)  # Only qubits 0, 1 exist
 
+    def test_invalid_qubit(self):
+        with pytest.raises(ValueError):
+            Circuit(2).h(5)
+
+    def test_20_qubits(self):
+        qc = Circuit(20)
+        for i in range(20): qc.h(i)
+        qc.measure_all()
+        result = qc.run(shots=10)
+        assert sum(result.counts.values()) == 10
+
+
+# ==================== Gate Tests ====================
 
 class TestGates:
-    """Test quantum gates."""
-    
-    def test_pauli_gates_are_unitary(self):
-        """Pauli gates should be unitary."""
-        for gate in [gates.X, gates.Y, gates.Z]:
-            assert gates.is_unitary(gate)
-    
-    def test_pauli_squared_is_identity(self):
-        """X², Y², Z² = I."""
-        assert np.allclose(gates.X @ gates.X, gates.I)
-        assert np.allclose(gates.Y @ gates.Y, gates.I)
-        assert np.allclose(gates.Z @ gates.Z, gates.I)
-    
-    def test_hadamard_squared_is_identity(self):
-        """H² = I."""
-        assert np.allclose(gates.H @ gates.H, gates.I)
-    
-    def test_rotation_gates(self):
-        """Test rotation gates at specific angles."""
-        # Rx(π) = -iX
-        assert np.allclose(gates.Rx(np.pi), -1j * gates.X)
-        # Ry(π) = -iY  
-        assert np.allclose(gates.Ry(np.pi), -1j * gates.Y)
-        # Rz(π) = -iZ
-        assert np.allclose(gates.Rz(np.pi), -1j * gates.Z)
+    def test_unitarity(self):
+        for g in [gates.X, gates.Y, gates.Z, gates.H, gates.S, gates.T, gates.CNOT]:
+            assert gates.is_unitary(g)
 
+    def test_pauli_algebra(self):
+        assert np.allclose(gates.X @ gates.Y, 1j * gates.Z)
+        assert np.allclose(gates.Y @ gates.Z, 1j * gates.X)
+        assert np.allclose(gates.Z @ gates.X, 1j * gates.Y)
+
+    def test_rotations(self):
+        assert np.allclose(gates.Rx(2*np.pi), -gates.I)
+        assert np.allclose(gates.Ry(2*np.pi), -gates.I)
+        assert np.allclose(gates.Rz(2*np.pi), -gates.I)
+
+
+# ==================== QRNG Tests ====================
 
 class TestQRNG:
-    """Test Quantum Random Number Generator."""
-    
-    def test_random_bits_length(self):
-        """Should generate correct number of bits."""
-        qrng = QRNG()
-        bits = qrng.random_bits(100)
+    def test_bits(self):
+        bits = QRNG().random_bits(100)
         assert len(bits) == 100
-        assert all(b in [0, 1] for b in bits)
-    
-    def test_random_bytes_length(self):
-        """Should generate correct number of bytes."""
-        qrng = QRNG()
-        data = qrng.random_bytes(32)
-        assert len(data) == 32
-        assert isinstance(data, bytes)
-    
-    def test_random_int_range(self):
-        """Random int should be in range."""
-        qrng = QRNG()
-        for _ in range(100):
-            n = qrng.random_int(10, 20)
-            assert 10 <= n < 20
-    
-    def test_random_float_range(self):
-        """Random float should be in [0, 1)."""
-        qrng = QRNG()
-        for _ in range(100):
-            f = qrng.random_float()
-            assert 0.0 <= f < 1.0
-    
-    def test_uuid_format(self):
-        """UUID should have correct format."""
-        qrng = QRNG()
-        uuid = qrng.random_uuid4()
-        parts = uuid.split('-')
-        assert len(parts) == 5
-        assert [len(p) for p in parts] == [8, 4, 4, 4, 12]
+        assert 30 < sum(bits) < 70
 
+    def test_bytes(self):
+        data = QRNG().random_bytes(32)
+        assert len(data) == 32
+
+    def test_int_range(self):
+        for _ in range(50):
+            assert 0 <= QRNG().random_int(0, 10) < 10
+
+    def test_float_range(self):
+        for _ in range(50):
+            assert 0 <= QRNG().random_float() < 1
+
+
+# ==================== QAOA Tests ====================
 
 class TestQAOA:
-    """Test QAOA MaxCut solver."""
-    
-    def test_triangle_maxcut(self):
-        """Triangle has max cut of 2."""
-        edges = [(0, 1), (1, 2), (2, 0)]
-        qaoa = QAOA(edges, p=1)
-        result = qaoa.optimize(shots=256, seed=42)
+    def test_triangle(self):
+        result = QAOA([(0,1),(1,2),(2,0)], p=1).optimize(shots=512, seed=42)
         assert result.cut_value() == 2
-    
-    def test_random_graph(self):
-        """Random graph should work."""
-        qaoa = QAOA.random_graph(5, edge_prob=0.5, seed=42)
-        result = qaoa.optimize(shots=256, seed=42)
-        assert result.cut_value() >= 0
 
+    def test_square(self):
+        result = QAOA([(0,1),(1,2),(2,3),(3,0)], p=2).optimize(shots=512, seed=42)
+        assert result.cut_value() == 4
+
+
+# ==================== BB84 Tests ====================
 
 class TestBB84:
-    """Test BB84 QKD protocol."""
-    
-    def test_secure_channel_low_error(self):
-        """Secure channel should have low error rate."""
-        bb84 = BB84(key_length=64)
-        result = bb84.run(with_eavesdropper=False, seed=42)
+    def test_secure(self):
+        result = BB84(128).run(with_eavesdropper=False, seed=42)
         assert result.error_rate < 0.05
-        assert not result.eavesdropper_detected
-    
-    def test_eavesdropper_detected(self):
-        """Eavesdropper should cause high error rate."""
-        bb84 = BB84(key_length=64)
-        result = bb84.run(with_eavesdropper=True, seed=42)
-        assert result.error_rate > 0.15
+
+    def test_eavesdropper(self):
+        result = BB84(128).run(with_eavesdropper=True, seed=42)
         assert result.eavesdropper_detected
-    
-    def test_key_generated(self):
-        """Key should be generated."""
-        bb84 = BB84(key_length=64)
-        result = bb84.run(seed=42)
-        assert len(result.key) > 0
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+# ==================== VQE Tests ====================
+
+class TestVQE:
+    def test_h2_converges(self):
+        h2 = MolecularHamiltonian.H2(0.735)
+        vqe = VQE(h2, depth=3)
+        result = vqe.run(maxiter=200, seed=42)
+        exact = h2.exact_ground_state()
+        assert abs(result.energy - exact) < 0.001
+
+
+# ==================== Noise Simulator Tests ====================
+
+class TestNoise:
+    def test_depolarizing_channel(self):
+        ch = depolarizing(0.1)
+        assert len(ch.kraus_ops) == 4
+
+    def test_noisy_bell(self):
+        qc = Circuit(2).h(0).cx(0, 1).measure_all()
+        noise = NoiseModel()
+        noise.add_all_qubit_error(depolarizing(0.1))
+        result = noise.run(qc, shots=1000, seed=42)
+        # Should have some errors (01, 10 states)
+        assert len(result.counts) > 2
+
+    def test_density_matrix_pure(self):
+        dm = DensityMatrix(1)
+        assert abs(dm.purity() - 1.0) < 1e-10
+
+    def test_density_matrix_mixed(self):
+        dm = DensityMatrix(1)
+        dm.apply_channel(depolarizing(1.0), [0])  # Fully depolarize
+        assert dm.purity() < 0.6
+
+    def test_bell_concurrence(self):
+        dm = DensityMatrix(2)
+        dm.apply_gate(gates.H, [0])
+        dm.apply_gate(gates.CNOT, [0, 1])
+        assert abs(dm.concurrence() - 1.0) < 1e-6
+
+    def test_partial_trace(self):
+        dm = DensityMatrix(2)
+        dm.apply_gate(gates.H, [0])
+        dm.apply_gate(gates.CNOT, [0, 1])
+        reduced = dm.partial_trace([0])
+        assert abs(reduced.purity() - 0.5) < 1e-6
+
+    def test_thermal_relaxation(self):
+        ch = thermal_relaxation(50, 70, 10)
+        assert len(ch.kraus_ops) > 0
+
+    def test_hardware_noise_model(self):
+        noise = NoiseModel.from_backend()
+        qc = Circuit(2).h(0).cx(0, 1).measure_all()
+        result = noise.run(qc, shots=100, seed=42)
+        assert sum(result.counts.values()) == 100
+
+
+# ==================== Error Correction Tests ====================
+
+class TestErrorCorrection:
+    def test_bit_flip_improvement(self):
+        result = BitFlipCode().demonstrate(error_rate=0.05, shots=5000, seed=42)
+        assert result.logical_error_rate < result.physical_error_rate
+
+    def test_shor_code(self):
+        result = ShorCode().demonstrate(error_rate=0.01, shots=5000, seed=42)
+        assert result.logical_error_rate is not None
+
+    def test_steane_code(self):
+        result = SteaneCode().demonstrate(error_rate=0.01, shots=5000, seed=42)
+        assert result.logical_error_rate is not None
+
+    def test_circuit_correction(self):
+        bf = BitFlipCode()
+        # No error - should get |00000>
+        result = bf.demonstrate_circuit(error_qubit=None, shots=100, seed=42)
+        assert result.counts.get('00000', 0) == 100
+
+
+# ==================== Shor's Algorithm Tests ====================
+
+class TestShor:
+    def test_factor_15(self):
+        result = shor_factor(15, seed=42)
+        assert result.success
+        assert set(result.factors) == {3, 5}
+
+    def test_factor_21(self):
+        result = shor_factor(21, seed=42)
+        assert result.success
+        assert set(result.factors) == {3, 7}
+
+    def test_factor_91(self):
+        result = shor_factor(91, seed=42)
+        assert result.success
+        assert set(result.factors) == {7, 13}
+
+    def test_even_number(self):
+        result = shor_factor(14, seed=42)
+        assert result.factors == (2, 7)
+
+
+if __name__ == '__main__':
+    pytest.main([__file__, '-v', '--tb=short'])

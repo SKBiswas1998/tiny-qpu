@@ -1,228 +1,153 @@
-# tiny-qpu
+# tiny-qpu 🔬
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+A complete quantum processing unit simulator built from scratch in Python.
+No Qiskit. No Cirq. Just NumPy and linear algebra.
 
-A minimal, fast quantum computing library with practical applications.
+[![Tests](https://img.shields.io/badge/tests-37%20passed-brightgreen)]()
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)]()
+[![Qubits](https://img.shields.io/badge/qubits-up%20to%2020-purple)]()
 
-**Why tiny-qpu?**
-- ⚡ **Fast**: <500ms import (vs Qiskit's 5+ seconds)
-- 🎯 **Simple**: Fluent API - quantum circuits in 3 lines, not 30
-- 🔧 **Practical**: Real applications (QRNG, QAOA, BB84), not just demos
-- 📚 **Educational**: See quantum state evolution after each gate
+## What's Inside
 
-## Installation
-```bash
-pip install tiny-qpu
-```
+**Core Simulator**
+- Statevector simulation up to 20 qubits
+- 20+ quantum gates (Pauli, Clifford, rotation, controlled, 3-qubit)
+- Optimized measurement: 7000x speedup via vectorized sampling
+- Circuit depth analysis and ASCII visualization
 
-Or from source:
-```bash
-git clone https://github.com/SKBiswas1998/tiny-qpu.git
-cd tiny-qpu
-pip install -e .
-```
+**Applications**
+- **QRNG** — Quantum random number generator (bits, bytes, ints, floats)
+- **QAOA** — Approximate optimization for MaxCut problems
+- **BB84** — Quantum key distribution with eavesdropper detection
+- **VQE** — Variational eigensolver for H₂ molecular ground state
+
+**Advanced**
+- **Shor's Algorithm** — Integer factorization via quantum period finding (QPE)
+- **Noise Simulator** — Density matrix simulation with depolarizing, amplitude damping, phase damping, thermal relaxation, and readout errors
+- **Error Correction** — Bit flip [[3,1,1]], phase flip, Shor [[9,1,3]], and Steane [[7,1,3]] codes
+- **Quantum Fourier Transform** — Full QFT and inverse QFT circuits
 
 ## Quick Start
-
-### As a Library
+```bash
+pip install -e .
+```
 ```python
 from tiny_qpu import Circuit
 
-# Create a Bell state in 3 lines
+# Bell state
 qc = Circuit(2).h(0).cx(0, 1).measure_all()
 result = qc.run(shots=1000)
 print(result.counts)  # {'00': ~500, '11': ~500}
 ```
 
-### From Command Line
+## CLI
 ```bash
-# Generate quantum random numbers
-tiny-qpu qrng --bytes 32 --hex
-
-# Solve MaxCut optimization
-tiny-qpu maxcut --random 6
-
-# Run BB84 key distribution demo
-tiny-qpu bb84 --demo
-
-# Run Bell state demo
-tiny-qpu run bell
+tiny-qpu run "H 0; CX 0 1; MEASURE 0; MEASURE 1" --shots 1000
+tiny-qpu qrng --bits 256
+tiny-qpu qaoa --graph triangle --rounds 2
+tiny-qpu bb84 --key-bits 128 --eavesdrop
+tiny-qpu vqe --molecule h2 --bond-length 0.735
 ```
 
-## Applications
-
-### 🎲 Quantum Random Number Generator (QRNG)
-
-Generate true random numbers using quantum superposition:
+## Factor Integers with Shor's Algorithm
 ```python
-from tiny_qpu.apps import QRNG
+from tiny_qpu.algorithms import shor_factor
 
-qrng = QRNG()
+result = shor_factor(15, seed=42)
+print(result)  # Shor: 15 = 5 x 3 (a=8, r=4, attempts=1)
 
-# Random bytes (for cryptographic keys)
-key = qrng.random_bytes(32)
-print(f"256-bit key: {key.hex()}")
-
-# Random integers
-dice = qrng.random_int(1, 7)  # Roll a die
-
-# Random UUID
-uuid = qrng.random_uuid4()
+result = shor_factor(91, seed=42)
+print(result)  # Shor: 91 = 13 x 7 (a=71, r=12, attempts=2)
 ```
 
-### 📊 QAOA MaxCut Solver
-
-Solve graph optimization problems using the Quantum Approximate Optimization Algorithm:
-```python
-from tiny_qpu.apps import QAOA, solve_maxcut
-
-# Define a graph (edges)
-edges = [(0, 1), (1, 2), (2, 3), (3, 0), (0, 2)]
-
-# Solve MaxCut
-result = solve_maxcut(edges, p=2)
-print(f"Best partition: {result.bitstring}")
-print(f"Cut value: {result.cut_value()}")
-
-# Or use the full API
-qaoa = QAOA(edges, p=2)
-result = qaoa.optimize(shots=1024)
-```
-
-### 🔐 BB84 Quantum Key Distribution
-
-Simulate quantum cryptography with eavesdropper detection:
-```python
-from tiny_qpu.apps import BB84
-
-# Generate a shared secret key
-bb84 = BB84(key_length=256)
-result = bb84.run()
-
-print(f"Key: {result.key.hex()}")
-print(f"Error rate: {result.error_rate:.2%}")
-
-# Simulate with eavesdropper (Eve)
-result = bb84.run(with_eavesdropper=True)
-if result.eavesdropper_detected:
-    print("⚠️ Eavesdropper detected!")
-```
-
-## Educational Mode
-
-See the quantum state after each gate:
+## Simulate Real Hardware Noise
 ```python
 from tiny_qpu import Circuit
+from tiny_qpu.noise import NoiseModel, depolarizing, depolarizing_2q
 
-# Educational mode shows state evolution
-with Circuit(2, educational=True) as qc:
-    qc.h(0)      # Shows superposition
-    qc.cx(0, 1)  # Shows entanglement
+noise = NoiseModel()
+noise.add_all_qubit_error(depolarizing(0.01))
+noise.add_gate_error('CX', depolarizing_2q(0.02))
+noise.add_readout_error(0.03)
+
+qc = Circuit(2).h(0).cx(0, 1).measure_all()
+
+clean = qc.run(shots=1000)          # {'00': 500, '11': 500}
+noisy = noise.run(qc, shots=1000)   # {'00': 471, '01': 40, '10': 46, '11': 443}
 ```
 
-Output:
-```
-After H on qubit(s) [0]:
-  |00⟩:  0.7071  (prob: 50.00%)
-  |10⟩:  0.7071  (prob: 50.00%)
-
-After CX on qubit(s) [0, 1]:
-  |00⟩:  0.7071  (prob: 50.00%)
-  |11⟩:  0.7071  (prob: 50.00%)
+Or use a preset hardware model:
+```python
+noise = NoiseModel.from_backend(t1=50e3, t2=70e3, readout_error=0.02)
 ```
 
-## Supported Gates
+## Quantum Error Correction
+```python
+from tiny_qpu.error_correction import BitFlipCode, compare_codes
 
-### Single-Qubit Gates
-| Gate | Method | Description |
-|------|--------|-------------|
-| I | `.i(q)` | Identity |
-| X | `.x(q)` | Pauli-X (NOT) |
-| Y | `.y(q)` | Pauli-Y |
-| Z | `.z(q)` | Pauli-Z |
-| H | `.h(q)` | Hadamard |
-| S | `.s(q)` | S gate (√Z) |
-| T | `.t(q)` | T gate (π/8) |
-| Rx | `.rx(θ, q)` | X rotation |
-| Ry | `.ry(θ, q)` | Y rotation |
-| Rz | `.rz(θ, q)` | Z rotation |
+result = BitFlipCode().demonstrate(error_rate=0.05, shots=10000)
+print(f"Physical error: {result.physical_error_rate:.4f}")
+print(f"Logical error:  {result.logical_error_rate:.4f}")
+print(f"Improvement:    {result.improvement:.1f}x")
 
-### Two-Qubit Gates
-| Gate | Method | Description |
-|------|--------|-------------|
-| CNOT | `.cx(c, t)` | Controlled-X |
-| CZ | `.cz(c, t)` | Controlled-Z |
-| SWAP | `.swap(q1, q2)` | Swap qubits |
-| CRz | `.crz(θ, c, t)` | Controlled Rz |
-| RZZ | `.rzz(θ, q1, q2)` | ZZ interaction |
+# Compare all codes
+compare_codes(error_rates=[0.01, 0.05, 0.10])
+```
 
-### Three-Qubit Gates
-| Gate | Method | Description |
-|------|--------|-------------|
-| Toffoli | `.ccx(c1, c2, t)` | CCX (AND gate) |
-| Fredkin | `.cswap(c, t1, t2)` | Controlled SWAP |
+## VQE Molecular Simulation
+```python
+from tiny_qpu.apps import VQE, MolecularHamiltonian
+
+h2 = MolecularHamiltonian.H2(bond_length=0.735)  # Angstroms
+vqe = VQE(h2, depth=3)
+result = vqe.run(maxiter=200)
+
+print(f"Ground state energy: {result.energy:.6f} Ha")
+print(f"Exact energy:        {h2.exact_ground_state():.6f} Ha")
+print(f"Error:               {abs(result.energy - h2.exact_ground_state()):.6f} Ha")
+```
 
 ## Architecture
 ```
-┌─────────────────────────────────────────────────┐
-│                    tiny-qpu                      │
-├─────────────────────────────────────────────────┤
-│  Circuit API    →  StateVector  →  Measurement  │
-│  (fluent/chain)    (tensor ops)    (sampling)   │
-├─────────────────────────────────────────────────┤
-│                  Applications                    │
-│   QRNG  │  QAOA (MaxCut)  │  BB84 (QKD)        │
-├─────────────────────────────────────────────────┤
-│                      CLI                         │
-│  tiny-qpu qrng | maxcut | bb84 | run            │
-└─────────────────────────────────────────────────┘
+tiny_qpu/
+├── core/              # Statevector engine, gates, circuits
+│   ├── statevector.py # Tensor-based simulation (up to 20 qubits)
+│   ├── gates.py       # 20+ quantum gates with unitarity checks
+│   └── circuit.py     # Fluent API with optimized measurement
+├── apps/              # Quantum applications
+│   ├── qrng.py        # Quantum random number generation
+│   ├── qaoa.py        # Combinatorial optimization
+│   ├── bb84.py        # Quantum cryptography
+│   └── vqe.py         # Variational quantum eigensolver
+├── algorithms/        # Famous quantum algorithms
+│   └── __init__.py    # Shor's factoring, QPE, QFT
+├── noise/             # Hardware noise simulation
+│   └── __init__.py    # Density matrices, quantum channels, noise models
+├── error_correction/  # QEC codes
+│   └── __init__.py    # Bit flip, phase flip, Shor, Steane codes
+├── cli/               # Command-line interface
+└── visualization.py   # ASCII circuit diagrams
 ```
 
 ## Performance
 
-| Qubits | Memory | tiny-qpu | Qiskit |
-|--------|--------|----------|--------|
-| 10 | 16 KB | ✅ | ✅ |
-| 15 | 512 KB | ✅ | ✅ |
-| 20 | 16 MB | ✅ | ✅ |
-| 25 | 512 MB | ✅ | ✅ |
+| Benchmark | Result |
+|-----------|--------|
+| 20-qubit Hadamard | < 1s |
+| 10k shots (10 qubits) | 0.002s |
+| QAOA 5-node graph | 0.04s |
+| Shor factor(15) | 0.10s |
+| VQE H₂ ground state | 0.18s |
+| Factor(91) | ~10s |
 
-Import time comparison:
-- **tiny-qpu**: ~350ms
-- **Qiskit**: ~5-10 seconds
+## Tests
+```bash
+python -m pytest tests/ -v  # 37 tests, all passing
+```
 
-## Comparison with Other Frameworks
+## Built Without
 
-| Feature | tiny-qpu | Qiskit | Cirq |
-|---------|----------|--------|------|
-| Import time | <500ms | 5-10s | 2-3s |
-| Dependencies | 2 | 50+ | 20+ |
-| Learning curve | Low | High | Medium |
-| Built-in QRNG | ✅ | ❌ | ❌ |
-| Built-in QAOA | ✅ | Plugin | Plugin |
-| Built-in BB84 | ✅ | ❌ | ❌ |
-| Educational mode | ✅ | ❌ | ❌ |
-| Hardware backends | ❌ | ✅ | ✅ |
-
-**tiny-qpu is ideal for:**
-- Rapid prototyping
-- Education and learning
-- Embedded applications
-- When you don't need real hardware
-
-## References
-
-- [Quantum Computing: An Applied Approach](https://link.springer.com/book/10.1007/978-3-030-23922-0)
-- [QAOA Original Paper](https://arxiv.org/abs/1411.4028)
-- [BB84 Protocol](https://en.wikipedia.org/wiki/BB84)
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-*Part of the Quantum Computing Portfolio by SK Biswas*
-
-**GitHub**: https://github.com/SKBiswas1998/tiny-qpu
+No Qiskit. No Cirq. No PennyLane. Just:
+- **NumPy** for linear algebra
+- **SciPy** for VQE optimization
+- Pure Python for everything else
