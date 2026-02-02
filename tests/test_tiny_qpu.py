@@ -231,5 +231,42 @@ class TestShor:
         assert result.factors == (2, 7)
 
 
+
+
+# ==================== Benchmark Tests ====================
+
+class TestBenchmark:
+    def test_molecule_library(self):
+        from tiny_qpu.benchmark.molecules import MoleculeLibrary
+        for name in ['H2', 'HeH+', 'LiH', 'H4']:
+            mol = MoleculeLibrary.get(name)
+            assert mol.n_qubits in [2, 4]
+            assert len(mol.pauli_terms) > 0
+            exact, _ = mol.exact_diag()
+            assert exact < 0
+
+    def test_h2_energy_curve(self):
+        from tiny_qpu.benchmark.molecules import MoleculeLibrary
+        surface = MoleculeLibrary.potential_energy_surface('H2', n_points=5)
+        assert len(surface) == 5
+        energies = [e for _, e in surface]
+        assert min(energies) < -1.0
+
+    def test_vqe_benchmark_h2(self):
+        from tiny_qpu.benchmark import VQEBenchmark
+        from tiny_qpu.benchmark.molecules import MoleculeLibrary
+        mol = MoleculeLibrary.get('H2', 0.735)
+        vqe = VQEBenchmark(mol, depth=2)
+        result = vqe.run(maxiter=200, seed=42)
+        assert abs(result['energy'] - result['exact_energy']) < 0.002
+
+    def test_benchmark_suite(self):
+        from tiny_qpu.benchmark import ChemistryBenchmark
+        bench = ChemistryBenchmark(seed=42, maxiter=100)
+        suite = bench.run(molecules=['H2'], depths=[2], verbose=False)
+        assert len(suite.results) > 0
+        assert suite.results[0].molecule == 'H2'
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--tb=short'])

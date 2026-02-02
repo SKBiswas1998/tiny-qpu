@@ -68,3 +68,6 @@ from . import error_correction
 
 from . import algorithms
 
+
+from . import benchmark
+

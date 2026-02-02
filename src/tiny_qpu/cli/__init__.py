@@ -197,6 +197,43 @@ GitHub: https://github.com/SKBiswas1998/tiny-qpu
 """)
 
 
+
+def cmd_benchmark(args):
+    """Run molecular chemistry benchmarks."""
+    from ..benchmark import ChemistryBenchmark
+    from ..benchmark.molecules import MoleculeLibrary
+
+    if args.list:
+        print("\nAvailable molecules:")
+        print("-" * 60)
+        for name, info in MoleculeLibrary.list_molecules().items():
+            print(f"  {name:6s}  {info['qubits']}q  {info['n_terms']:2d} terms  "
+                  f"E={info['exact_energy']:.6f} Ha")
+            print(f"         R={info['bond_range']} A  {info['description']}")
+        return
+
+    bench = ChemistryBenchmark(seed=args.seed or 42, maxiter=args.maxiter)
+
+    if args.noise_sweep:
+        mol = (args.molecule or 'H2').upper()
+        mol = 'HeH+' if mol == 'HEH+' else 'LiH' if mol == 'LIH' else mol
+        R = args.bond_length or 0.735
+        suite = bench.run_noise_sweep(mol, bond_length=R)
+    elif args.full:
+        suite = bench.run_full()
+    elif args.quick:
+        suite = bench.run_quick()
+    else:
+        molecules = [(args.molecule or 'H2').upper()]
+        molecules = ['HeH+' if m == 'HEH+' else 'LiH' if m == 'LIH' else m for m in molecules]
+        suite = bench.run(molecules=molecules, depths=[args.depth])
+
+    print("\n" + suite.summary())
+
+    if args.export:
+        ChemistryBenchmark.export_csv(suite, args.export)
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -246,6 +283,20 @@ def main():
     vqe_parser.add_argument('--scan', action='store_true', help='PES scan')
     vqe_parser.set_defaults(func=cmd_vqe)
     
+    # Benchmark command
+    bench_parser = subparsers.add_parser('benchmark', help='Chemistry benchmark suite')
+    bench_parser.add_argument('--molecule', '-m', default=None, help='Molecule: H2, HeH+, LiH, H4')
+    bench_parser.add_argument('--bond-length', '-r', type=float, default=None)
+    bench_parser.add_argument('--depth', '-d', type=int, default=2, help='Ansatz depth')
+    bench_parser.add_argument('--maxiter', type=int, default=300)
+    bench_parser.add_argument('--seed', type=int, default=42)
+    bench_parser.add_argument('--quick', action='store_true', help='Quick: H2+HeH+ clean')
+    bench_parser.add_argument('--full', action='store_true', help='Full: all molecules+noise')
+    bench_parser.add_argument('--noise-sweep', action='store_true', help='Noise level sweep')
+    bench_parser.add_argument('--list', action='store_true', help='List available molecules')
+    bench_parser.add_argument('--export', type=str, default=None, help='Export CSV path')
+    bench_parser.set_defaults(func=cmd_benchmark)
+
     # Info command
     info_parser = subparsers.add_parser('info', help='Show tiny-qpu info')
     info_parser.set_defaults(func=cmd_info)
