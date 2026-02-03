@@ -416,7 +416,7 @@ class NoiseModel:
         
         from ..core import gates as g
         
-        dm = DensityMatrix(circuit.num_qubits)
+        dm = DensityMatrix(circuit.n_qubits)
         
         gate_map = {
             'H': g.H, 'X': g.X, 'Y': g.Y, 'Z': g.Z,
@@ -425,7 +425,7 @@ class NoiseModel:
             'SWAP': g.SWAP, 'CCX': g.TOFFOLI,
         }
         
-        for op in circuit._operations:
+        for op in circuit._instructions:
             if op.name == 'MEASURE' or op.name == 'BARRIER':
                 continue
             

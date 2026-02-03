@@ -1,73 +1,32 @@
 """
-tiny-qpu: A minimal, fast quantum computing library.
+tiny-qpu: A lightweight quantum processing unit simulator.
 
-Features:
-- Fast imports (<500ms vs Qiskit's 5+ seconds)
-- Fluent API: Circuit(2).h(0).cx(0,1).measure_all()
-- Educational mode: see state after each gate
-- Practical apps: QRNG, QAOA, BB84
-- ASCII visualization: circuits, states, Bloch sphere
+Designed for composability, speed, and research utility.
+Provides efficient statevector simulation, parameterized circuits,
+and a pure-Python OpenQASM 2.0 parser.
 
-Quick Start:
-    >>> from tiny_qpu import Circuit
-    >>> qc = Circuit(2).h(0).cx(0, 1).measure_all()
-    >>> result = qc.run(shots=1000)
-    >>> print(result.counts)  # {'00': ~500, '11': ~500}
-
-Visualization:
-    >>> from tiny_qpu import Circuit, draw_circuit, visualize
-    >>> qc = Circuit(2).h(0).cx(0, 1)
-    >>> print(draw_circuit(qc))  # ASCII circuit diagram
-    >>> visualize(qc)  # Step-by-step execution
+Example
+-------
+>>> from tiny_qpu import Circuit, gates, StatevectorBackend
+>>> qc = Circuit(2)
+>>> qc.h(0)
+>>> qc.cx(0, 1)
+>>> backend = StatevectorBackend()
+>>> result = backend.run(qc)
+>>> print(result.probabilities())
+{0: 0.5, 3: 0.5}
 """
-__version__ = "1.0.0"
-__author__ = "SK Biswas"
 
-# Core components
-from .core import Circuit, StateVector, SimulatorResult, gates
+__version__ = "0.2.0"
 
-# Visualization
-from .visualization import (
-    draw_circuit,
-    show_state,
-    show_counts,
-    show_bloch,
-    visualize,
-    CircuitVisualizer,
-    StateVisualizer,
-    BlochSphere,
-    ExecutionVisualizer,
-)
-
-# Make apps accessible
-from . import apps
+from tiny_qpu.circuit import Circuit, Parameter
+from tiny_qpu.backends.statevector import StatevectorBackend
+from tiny_qpu.backends.density_matrix import DensityMatrixBackend
 
 __all__ = [
-    # Core
-    'Circuit',
-    'StateVector', 
-    'SimulatorResult',
-    'gates',
-    # Visualization
-    'draw_circuit',
-    'show_state',
-    'show_counts',
-    'show_bloch',
-    'visualize',
-    'CircuitVisualizer',
-    'StateVisualizer',
-    'BlochSphere',
-    'ExecutionVisualizer',
-    # Submodules
-    'apps',
+    "Circuit",
+    "Parameter",
+    "StatevectorBackend",
+    "DensityMatrixBackend",
+    "__version__",
 ]
-
-from . import noise
-from . import error_correction
-
-
-from . import algorithms
-
-
-from . import benchmark
-
