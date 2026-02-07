@@ -1,79 +1,156 @@
-# tiny-qpu 🔬
+<p align="center">
+  <img src="assets/tiny-qpu-logo-512.png" alt="tiny-qpu" width="200"/>
+</p>
 
-A complete quantum processing unit simulator built from scratch in Python.
-No Qiskit. No Cirq. Just NumPy and linear algebra.
+<h1 align="center">tiny-qpu</h1>
 
-[![Tests](https://img.shields.io/badge/tests-353%20passed-brightgreen)]()
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)]()
-[![Qubits](https://img.shields.io/badge/qubits-up%20to%2020-purple)]()
-[![Chemical Accuracy](https://img.shields.io/badge/chemical%20accuracy-100%25-green)]()
-[![OpenQASM](https://img.shields.io/badge/OpenQASM-2.0-orange)]()
-[![Gates](https://img.shields.io/badge/gates-35%2B-blueviolet)]()
+<p align="center">
+  <em>A quantum processing unit simulator — Python library, CLI tool, and native desktop application.</em>
+</p>
 
-## What's Inside
+<p align="center">
+  <a href="#installation"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python 3.10+"/></a>
+  <a href="#tests"><img src="https://img.shields.io/badge/tests-386%20passing-brightgreen.svg" alt="Tests"/></a>
+  <a href="#gate-library"><img src="https://img.shields.io/badge/gates-35+-purple.svg" alt="35+ Gates"/></a>
+  <a href="#openqasm-20"><img src="https://img.shields.io/badge/OpenQASM-2.0-orange.svg" alt="OpenQASM 2.0"/></a>
+  <a href="#quantum-lab-desktop-app"><img src="https://img.shields.io/badge/Quantum%20Lab-Desktop%20App-00d4ff.svg" alt="Quantum Lab"/></a>
+  <a href="#windows-installer"><img src="https://img.shields.io/badge/Windows-Installer-0078d4.svg" alt="Windows Installer"/></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"/></a>
+</p>
 
-**Core Simulator Engine**
-- Statevector simulation up to 20 qubits with gate-by-gate tensor contraction
-- Density matrix backend for noisy simulation with 6 quantum channels
-- 35+ quantum gates: Pauli, Clifford, rotation, controlled, Ising, 3-qubit
-- Pure-Python OpenQASM 2.0 parser (zero dependencies, regex tokenizer)
-- Parameterized circuits with symbolic parameters and binding
-- Optimized measurement: 7000x speedup via vectorized sampling
-- Circuit depth analysis, inverse, composition, and ASCII visualization
+---
 
-**Quantum Applications**
-- **QRNG** — Quantum random number generator
-- **QAOA** — Approximate optimization for MaxCut
-- **BB84** — Quantum key distribution with eavesdropper detection
-- **VQE** — Variational eigensolver for molecular ground states
-- **Shor's Algorithm** — Integer factorization via QPE
+## What's New (February 7, 2026)
 
-**Molecular Chemistry Benchmark Suite**
-- Pre-computed Hamiltonians: H₂, HeH⁺, LiH, H₄ (Jordan-Wigner mapped)
-- Multiple ansatze: hardware-efficient, Ry-linear, UCCSD-inspired
-- Noise-aware benchmarking with depolarizing, amplitude damping, thermal relaxation
-- CSV/JSON export for publication-ready results
-- 100% chemical accuracy (<1 kcal/mol) on all molecules in clean simulation
+### Phase 2: Interactive Quantum Lab — Desktop Application
 
-**Advanced**
-- **Noise Simulator** — Density matrix simulation with 7 quantum channels
-- **Error Correction** — Bit flip, phase flip, Shor [[9,1,3]], Steane [[7,1,3]] codes
-- **Quantum Fourier Transform** — Full QFT and inverse QFT circuits
+- **Native Windows Desktop App** — Built with pywebview + Flask. No browser needed. Real Windows window with title bar, taskbar icon, minimize/maximize/close.
+- **Visual Circuit Builder** — Click to place 20 quantum gates on up to 8 qubits. Drag to reorder. Undo with Ctrl+Z.
+- **Bloch Sphere Visualization** — Real-time 3D rendering of single-qubit quantum states.
+- **Step-by-Step Execution** — Execute one gate at a time, watch the quantum state evolve through each operation.
+- **8 Preset Circuits** — Bell State, GHZ, Quantum Teleportation, Deutsch-Jozsa, QFT, Grover's Search, Phase Kickback, Bit-Flip Error Correction.
+- **OpenQASM Import/Export** — Load circuits from QASM files, export your designs to standard format.
+- **In-App Help System** — Press `?` for a 5-tab reference covering Quick Start, Gates, Shortcuts, Concepts, and About.
+- **Custom Logo & Branding** — Atom-orbital Bloch sphere logo in SVG, ICO (multi-size), and PNG formats.
+- **16-Page PDF Manual** — Dark-themed manual covering every feature, gate reference with matrices, quantum concepts glossary.
+- **Windows Installer** — Inno Setup installer with Start Menu shortcuts, desktop icon, and uninstaller. Also distributable as standalone .exe (33 MB).
+- **Automated Build Pipeline** — Single command (`python build_installer.py`) generates icons, builds the exe, creates the manual, and compiles the installer.
 
-## Architecture
+---
 
-![Architecture](diagrams/architecture.png)
+## What is tiny-qpu?
 
-The simulator is built in four layers: a **Circuit Builder** with OpenQASM 2.0 parsing at the top, a **Gate Library** (35+ gates) with parameter system and instruction IR in the middle, dual **Simulation Backends** (statevector O(2ⁿ) and density matrix O(4ⁿ)), and structured **Result Objects** at the output.
+tiny-qpu is a quantum computing toolkit that works at three levels:
 
-## Gate Library
+**As a Python library** — build quantum circuits programmatically, run simulations with statevector or density matrix backends, explore algorithms like Shor's factoring, Grover's search, VQE, QAOA, and BB84 quantum key distribution.
 
-![Gate Coverage](diagrams/gate_coverage.png)
+**As a desktop application** — a native Windows app with a visual circuit builder, Bloch sphere visualization, step-by-step execution, and 8 preset quantum circuits. No Python required.
 
-35+ gates across 5 categories: single-qubit fixed (I, X, Y, Z, H, S, Sdg, T, Tdg, SX), single-qubit rotation (Rx, Ry, Rz, P, U1, U2, U3), two-qubit fixed (CNOT, CZ, SWAP, iSWAP, ECR), two-qubit parameterized (CP, CRx, CRy, CRz, Rxx, Ryy, Rzz), and three-qubit (CCX/Toffoli, CSWAP/Fredkin).
-
-## Quick Start
-
-```bash
-pip install -e .
-```
+**As a learning tool** — 16-page manual, in-app help, step-by-step mode, and educational presets that walk you through fundamental quantum phenomena.
 
 ```python
-from tiny_qpu import Circuit
+from tiny_qpu.circuit import QuantumCircuit
 
-# Bell state
-qc = Circuit(2).h(0).cx(0, 1).measure_all()
-result = qc.run(shots=1000)
+qc = QuantumCircuit(2)
+qc.h(0)
+qc.cx(0, 1)
+result = qc.simulate(shots=1000)
 print(result.counts)  # {'00': ~500, '11': ~500}
 ```
 
-## OpenQASM 2.0 Support
+---
 
-Parse and execute standard OpenQASM circuits with zero external dependencies:
+## Quantum Lab (Desktop App)
+
+<p align="center">
+  <strong>Build quantum circuits visually. Watch quantum states evolve in real time.</strong>
+</p>
+
+The Interactive Quantum Lab is a native Windows desktop application. Double-click `tiny-qpu.exe` and start building quantum circuits immediately.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Circuit Builder** | Click to place gates on qubits. Visual grid with wire connections. |
+| **20 Quantum Gates** | H, X, Y, Z, S, T, √X, Rx, Ry, Rz, P, CX, CZ, SWAP, CRz, CCX, CSWAP, Measure |
+| **Bloch Sphere** | Real-time 3D visualization of single-qubit states |
+| **Step Mode** | Execute gate-by-gate, watch probabilities change at each step |
+| **8 Presets** | Bell, GHZ, Teleportation, Deutsch-Jozsa, QFT, Grover, Phase Kickback, Bit-Flip Code |
+| **QASM I/O** | Import and export circuits in OpenQASM 2.0 format |
+| **Help Modal** | Press `?` for built-in reference (gates, shortcuts, concepts) |
+| **Keyboard Shortcuts** | R=Run, S=Step, C=Clear, H/X/Y/M=Quick gate, Ctrl+Z=Undo |
+
+### Design
+
+Deep-space aesthetic with electric cyan and warm amber accents. Three-panel layout: gate palette (left), circuit builder (center), results panel (right) with Bloch sphere, probability bars, histogram, and amplitude table.
+
+### Launch Options
+
+```bash
+# Native desktop window (default)
+python tiny_qpu_launcher.py
+
+# Browser mode
+python tiny_qpu_launcher.py --browser
+
+# Custom port
+python tiny_qpu_launcher.py --port 9000
+
+# Or just double-click the exe
+.\dist\tiny-qpu.exe
+```
+
+---
+
+## Installation
+
+### From Source (library + dashboard)
+
+```bash
+git clone https://github.com/SKBiswas1998/tiny-qpu.git
+cd tiny-qpu
+pip install -e .
+```
+
+### Desktop App Dependencies
+
+```bash
+pip install flask pywebview     # Required for Quantum Lab
+pip install reportlab           # Optional: PDF manual generation
+pip install scipy matplotlib    # Optional: visualizations
+```
+
+### Windows Installer
+
+Download `tiny-qpu-setup.exe` from [Releases](https://github.com/SKBiswas1998/tiny-qpu/releases). Run the installer — creates Start Menu shortcut, desktop icon, and uninstaller. No Python needed.
+
+---
+
+## Core Simulator Engine
+
+### Circuit Builder API
+
+```python
+from tiny_qpu.circuit import QuantumCircuit
+
+# Build a 3-qubit circuit
+qc = QuantumCircuit(3)
+qc.h(0)                    # Hadamard on qubit 0
+qc.cx(0, 1)                # CNOT: control=0, target=1
+qc.ccx(0, 1, 2)            # Toffoli gate
+qc.rx(0.5, 0)              # Rx rotation by 0.5 radians
+qc.measure_all()
+
+result = qc.simulate(shots=1024)
+print(result.counts)
+print(result.statevector)
+```
+
+### OpenQASM 2.0
 
 ```python
 from tiny_qpu.qasm import parse_qasm
-from tiny_qpu.backends.statevector import StatevectorBackend
 
 qasm = """
 OPENQASM 2.0;
@@ -82,223 +159,285 @@ qreg q[2];
 creg c[2];
 h q[0];
 cx q[0], q[1];
-measure q -> c;
+measure q[0] -> c[0];
+measure q[1] -> c[1];
 """
 
 circuit = parse_qasm(qasm)
-backend = StatevectorBackend()
-result = backend.run(circuit, shots=1000)
-print(result.bitstring_counts())  # {'00': ~500, '11': ~500}
+result = circuit.simulate(shots=1000)
 ```
 
-Supports all standard gates, parameterized expressions (`pi/4`, `2*pi`, `-pi/2`), custom gate definitions, multiple quantum/classical registers, barriers, and measurements.
-
-## Density Matrix & Noise Simulation
+### Dual Simulation Backends
 
 ```python
-from tiny_qpu import Circuit
-from tiny_qpu.backends.density_matrix import DensityMatrixBackend, NoiseModel
-from tiny_qpu.backends.density_matrix import depolarizing, amplitude_damping
+# Statevector backend (pure states, fast, up to ~20 qubits)
+result = qc.simulate(backend='statevector', shots=1000)
 
-# Build noise model
-noise = NoiseModel()
-noise.add_all_qubit_error(depolarizing(0.01))
-
-# Simulate with noise
-qc = Circuit(2).h(0).cx(0, 1)
-backend = DensityMatrixBackend(noise_model=noise)
-result = backend.run(qc)
-
-print(f"Purity: {result.purity():.4f}")         # < 1.0 (mixed state)
-print(f"Entropy: {result.von_neumann_entropy():.4f}")  # > 0 (information loss)
+# Density matrix backend (mixed states, noise simulation, up to ~15 qubits)
+result = qc.simulate(backend='density_matrix', shots=1000)
 ```
 
-![Noise Channels](diagrams/noise_channels.png)
+---
 
-Six noise channels available: depolarizing, amplitude damping, phase damping, bit flip, phase flip, and thermal relaxation. Each preserves trace and positivity (completely positive trace-preserving maps).
+## Gate Library (35+)
+
+| Category | Gates |
+|----------|-------|
+| **Single-qubit fixed** | H, X, Y, Z, S, S†, T, T†, √X, I |
+| **Single-qubit rotation** | Rx(θ), Ry(θ), Rz(θ), P(θ), U1(λ), U2(φ,λ), U3(θ,φ,λ) |
+| **Two-qubit** | CX (CNOT), CY, CZ, CH, SWAP, CRx, CRy, CRz, CP, iSWAP, √SWAP |
+| **Three-qubit** | CCX (Toffoli), CSWAP (Fredkin), CCZ |
+
+---
+
+## Quantum Applications
+
+### Quantum Random Number Generator (QRNG)
+```python
+from applications.qrng import QuantumRNG
+rng = QuantumRNG()
+random_bits = rng.generate(256)         # 256 quantum random bits
+random_int = rng.random_int(1, 100)     # Random integer in range
+```
+
+### QAOA (Quantum Approximate Optimization)
+```python
+from applications.qaoa import QAOAOptimizer
+optimizer = QAOAOptimizer(graph, p=2)
+solution = optimizer.optimize()          # MaxCut approximation
+```
+
+### BB84 Quantum Key Distribution
+```python
+from applications.bb84 import BB84Protocol
+alice, bob = BB84Protocol.run(key_length=128)
+```
+
+### VQE (Variational Quantum Eigensolver)
+```python
+from applications.vqe import VQERunner
+energy = VQERunner(hamiltonian).run()    # Ground state energy
+```
+
+### Shor's Factoring Algorithm
+```python
+from algorithms.shor import ShorFactoring
+factors = ShorFactoring(15).factor()     # Returns (3, 5)
+```
+
+---
 
 ## Molecular Chemistry Benchmarks
 
-```python
-from tiny_qpu.benchmark import ChemistryBenchmark
-from tiny_qpu.benchmark.molecules import MoleculeLibrary
+Ground state energy calculations using VQE:
 
-# List available molecules
-MoleculeLibrary.list_molecules()
+| Molecule | Qubits | Bond Length (Å) | Energy (Hartree) |
+|----------|--------|-----------------|-------------------|
+| H₂       | 2      | 0.735           | -1.137            |
+| LiH      | 4      | 1.546           | -7.882            |
+| BeH₂     | 6      | 1.326           | -15.835           |
+| H₂O      | 8      | 0.958           | -75.012           |
 
-# Run quick benchmark (H2 + HeH+ at equilibrium)
-bench = ChemistryBenchmark(seed=42)
-suite = bench.run_quick()
-print(suite.summary())
+---
 
-# Full benchmark: all molecules, multiple ansatze, noise levels
-suite = bench.run_full()
+## Visualizations
 
-# Noise sweep: how does error scale with hardware noise?
-suite = bench.run_noise_sweep('H2', noise_levels=[0, 0.01, 0.05, 0.10])
+### Static Plots
+![Potential Energy Surfaces](docs/images/pes_curves.png)
+![Molecule Overview](docs/images/molecule_overview.png)
+![Noise Analysis](docs/images/noise_H2.png)
 
-# Export for papers
-ChemistryBenchmark.export_csv(suite, "results.csv")
-```
+### Animations
+![VQE Optimization](docs/images/vqe_optimization.gif)
+![Bloch Sphere](docs/images/bloch_sphere.gif)
+![PES Scan](docs/images/pes_H2.gif)
+![Noise Degradation](docs/images/noise_degradation.gif)
 
-### Available Molecules
-
-| Molecule | Qubits | Terms | Equilibrium Energy | Description |
-|----------|--------|-------|--------------------|-------------|
-| H₂ | 2 | 6 | -1.0967 Ha | Simplest molecular benchmark |
-| HeH⁺ | 2 | 6 | -2.1543 Ha | Heteronuclear, astrochemistry |
-| LiH | 4 | 21 | -1.3343 Ha | Key VQE benchmark (active space) |
-| H₄ | 4 | 21 | -1.8193 Ha | Strong electron correlation |
-
-### Benchmark Results (Clean Simulation)
-
-| Molecule | Ansatz | Depth | Error (mHa) | Chemical Accuracy | Time |
-|----------|--------|-------|-------------|-------------------|------|
-| H₂ | hardware_efficient | 2 | 0.00 | ✓ | 0.9s |
-| HeH⁺ | hardware_efficient | 2 | 0.00 | ✓ | 0.8s |
-| LiH | hardware_efficient | 2 | 0.00 | ✓ | 3.2s |
-| H₄ | ry_linear | 3 | 0.00 | ✓ | 3.7s |
-
-## CLI
-
-```bash
-tiny-qpu run bell --shots 1000
-tiny-qpu qrng --bits 256
-tiny-qpu qaoa --graph triangle --rounds 2
-tiny-qpu bb84 --key-bits 128 --eavesdrop
-tiny-qpu vqe --molecule h2 --bond-length 0.735
-
-# Benchmarks
-tiny-qpu benchmark --list
-tiny-qpu benchmark --quick
-tiny-qpu benchmark --molecule H2 --noise-sweep
-tiny-qpu benchmark --full --export results.csv
-```
-
-## Factor Integers with Shor's Algorithm
-
-```python
-from tiny_qpu.algorithms import shor_factor
-
-result = shor_factor(15, seed=42)
-print(result)  # Shor: 15 = 5 x 3 (a=8, r=4, attempts=1)
-```
-
-## Simulate Real Hardware Noise
-
-```python
-from tiny_qpu.noise import NoiseModel, depolarizing
-
-noise = NoiseModel()
-noise.add_all_qubit_error(depolarizing(0.01))
-noise.add_readout_error(0.03)
-
-qc = Circuit(2).h(0).cx(0, 1).measure_all()
-noisy = noise.run(qc, shots=1000)
-```
+---
 
 ## Project Structure
 
 ```
-tiny_qpu/
-├── circuit.py             # Circuit builder with parameters & QASM export
-├── gates.py               # 35+ gate library with GATE_REGISTRY
-├── backends/
-│   ├── statevector.py     # O(2^n) statevector simulation engine
-│   └── density_matrix.py  # O(4^n) density matrix with 6 noise channels
-├── qasm/
-│   └── parser.py          # Pure-Python OpenQASM 2.0 parser
-├── core/                  # Legacy statevector engine
-├── apps/                  # QRNG, QAOA, BB84, VQE
-├── algorithms/            # Shor's factoring, QPE, QFT
-├── benchmark/             # Chemistry benchmark suite
-│   ├── molecules.py       # H2, HeH+, LiH, H4 Hamiltonians
-│   └── __init__.py        # Benchmark runner + export
-├── noise/                 # Legacy noise module
-├── error_correction/      # Bit flip, Shor, Steane codes
-├── cli/                   # Command-line interface
-└── visualization.py       # ASCII circuit diagrams
+tiny-qpu/
+├── src/tiny_qpu/
+│   ├── circuit.py                 # QuantumCircuit fluent API
+│   ├── gates.py                   # 35+ gate matrix definitions
+│   ├── backends/
+│   │   ├── statevector.py         # Pure state simulation
+│   │   └── density_matrix.py      # Mixed state + noise channels
+│   ├── qasm/
+│   │   └── parser.py              # OpenQASM 2.0 parser
+│   └── dashboard/
+│       ├── __init__.py            # Package init with launch()
+│       ├── server.py              # Flask backend (8 REST endpoints)
+│       └── templates/
+│           └── index.html         # Self-contained UI (70 KB)
+├── algorithms/
+│   └── shor.py                    # Shor's factoring algorithm
+├── applications/
+│   ├── qrng.py                    # Quantum random number generator
+│   ├── qaoa.py                    # QAOA optimizer
+│   ├── bb84.py                    # BB84 QKD protocol
+│   └── vqe.py                     # Variational eigensolver
+├── benchmarks/
+│   └── molecules.py               # H₂, LiH, BeH₂, H₂O benchmarks
+├── assets/
+│   ├── tiny-qpu-logo.ico          # Windows icon (16-256px)
+│   ├── tiny-qpu-logo.svg          # Vector logo
+│   ├── tiny-qpu-logo.png          # 256px PNG
+│   ├── tiny-qpu-logo-512.png      # 512px PNG
+│   ├── installer_sidebar.bmp      # Inno Setup wizard image
+│   └── installer_small.bmp        # Inno Setup header image
+├── docs/images/                    # Visualization outputs
+├── tests/                          # 386 tests
+│   ├── test_dashboard.py          # 33 dashboard API tests
+│   └── ...                        # Core simulator tests
+├── tiny_qpu_launcher.py           # Desktop app entry point
+├── tiny_qpu_manual.pdf            # 16-page dark-themed manual
+├── build_installer.py             # Automated build pipeline
+├── create_icon.py                 # Logo/icon asset generator
+├── generate_manual.py             # PDF manual generator
+├── patch_help_modal.py            # In-app help system patcher
+├── tiny-qpu-setup.iss             # Inno Setup installer script
+└── .gitignore
 ```
 
-## Visualizations
+---
 
-### Bell State Measurement
+## Building the Desktop App
 
-![Bell State](diagrams/bell_state.png)
+### One Command Build
 
-10,000-shot measurement of the Bell state |Φ⁺⟩ = (|00⟩ + |11⟩)/√2, showing near-perfect 50/50 distribution between |00⟩ and |11⟩ outcomes with zero probability for |01⟩ and |10⟩.
+```bash
+pip install pyinstaller pillow pywebview flask numpy
+python build_installer.py
+```
 
-### Simulation Performance
+The build pipeline automatically:
 
-![Performance](diagrams/performance.png)
+1. **Generates logo assets** — ICO (multi-size), PNG, BMP installer images from Python (no external tools)
+2. **Builds `tiny-qpu.exe`** — Native Windows app via PyInstaller with embedded icon, `--windowed` (no console)
+3. **Creates PDF manual** — 16-page dark-themed manual via reportlab
+4. **Compiles Windows installer** — via Inno Setup (if installed), creates `installer_output/tiny-qpu-setup.exe`
 
-Statevector simulation scaling from 2 to 20 qubits, confirming the expected exponential O(2ⁿ) growth. A 20-qubit circuit (1M amplitudes) completes in under 1 second.
+### Build Outputs
 
-### Test Coverage
+| File | Size | Description |
+|------|------|-------------|
+| `dist/tiny-qpu.exe` | 33 MB | Standalone native Windows app |
+| `tiny_qpu_manual.pdf` | 28 KB | 16-page user manual |
+| `assets/tiny-qpu-logo.ico` | 23 KB | Multi-size Windows icon |
+| `installer_output/tiny-qpu-setup.exe` | ~34 MB | Windows installer (with Inno Setup) |
 
-![Test Summary](diagrams/test_summary.png)
+### Windows Installer
 
-### Potential Energy Surfaces
+The installer provides the full Windows experience:
 
-All four molecules showing characteristic potential wells with equilibrium geometries:
+- Welcome screen with tiny-qpu branding
+- Install location selection
+- Start Menu shortcuts (app + manual + uninstall)
+- Desktop shortcut with custom icon
+- "Launch after install" checkbox
+- Clean uninstall via Add/Remove Programs
 
-![Potential Energy Surfaces](docs/images/pes_curves.png)
+To build the installer, install [Inno Setup](https://jrsoftware.org/isdl.php) and re-run `python build_installer.py`.
 
-### Molecule Benchmark Overview
+---
 
-Accuracy, runtime, and qubit comparison across all molecules:
+## Dashboard API
 
-![Molecule Overview](docs/images/molecule_overview.png)
+The Quantum Lab backend exposes 8 REST endpoints:
 
-### Noise Analysis
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Serve the Quantum Lab UI |
+| `/api/simulate` | POST | Run a quantum circuit simulation |
+| `/api/step` | POST | Execute a single gate step |
+| `/api/bloch` | POST | Get Bloch sphere coordinates |
+| `/api/presets` | GET | List 8 preset circuits |
+| `/api/presets/<name>` | GET | Load a specific preset |
+| `/api/qasm/import` | POST | Parse OpenQASM to circuit |
+| `/api/qasm/export` | POST | Export circuit to OpenQASM |
 
-Error growth and fidelity decay under depolarizing noise for H2:
-
-![Noise Analysis](docs/images/noise_H2.png)
-
-### Animations
-
-**VQE Optimization** — Watch the variational optimizer converge to the ground state energy:
-
-![VQE Optimization](docs/images/vqe_optimization.gif)
-
-**Bloch Sphere** — Qubit state evolution through quantum gates (H, X, Z, T, Y):
-
-![Bloch Sphere](docs/images/bloch_sphere.gif)
-
-**H2 Potential Energy Surface Scan** — Bond length sweep revealing the energy minimum:
-
-![PES Scan](docs/images/pes_H2.gif)
-
-**Noise Degradation** — How depolarizing noise destroys quantum state fidelity:
-
-![Noise Degradation](docs/images/noise_degradation.gif)
-
-## Performance
-
-| Benchmark | Result |
-|-----------|--------|
-| 20-qubit Hadamard | < 1s |
-| 10k shots (10 qubits) | 0.002s |
-| Shor factor(15) | 0.10s |
-| VQE H₂ ground state | 0.9s |
-| Full benchmark (4 molecules) | ~40s |
-| 353 tests | 1.2s |
+---
 
 ## Tests
 
 ```bash
-python -m pytest tests/ -v  # 353 tests, all passing
+pytest tests/ -v
 ```
 
-89 comprehensive tests covering 11 categories: gate algebra, state preparation, circuit construction, statevector accuracy, measurement statistics, density matrix simulation, QASM round-trip, cross-backend consistency, edge cases, performance scaling, and quantum information theory (no-cloning theorem, quantum teleportation).
+**386 tests** across all modules:
 
-Plus 264 unit tests across gates, circuit builder, statevector backend, density matrix backend, QASM parser, and legacy API compatibility.
+| Module | Tests | Coverage |
+|--------|-------|----------|
+| Core simulator (statevector) | 150+ | Circuit, gates, measurement |
+| Core simulator (density matrix) | 80+ | Noise channels, mixed states |
+| OpenQASM parser | 30+ | Parsing, gate mapping, edge cases |
+| Applications (QRNG, QAOA, BB84, VQE) | 50+ | Algorithm correctness |
+| Shor's algorithm | 10+ | Factoring verification |
+| Molecular benchmarks | 20+ | Energy accuracy |
+| Dashboard API | 33 | All 8 endpoints, presets, QASM I/O |
 
-## Built Without
+---
 
-No Qiskit. No Cirq. No PennyLane. Just:
-- **NumPy** for linear algebra
-- **SciPy** for VQE optimization
-- **matplotlib** for diagram generation (optional)
-- Pure Python for everything else
+## Performance
+
+| Metric | Value |
+|--------|-------|
+| Full test suite (386 tests) | ~1.5s |
+| 10-qubit circuit, 100 gates | <50ms |
+| Bell state, 1000 shots | <5ms |
+| Max practical qubits (statevector) | ~20 |
+| Max practical qubits (density matrix) | ~15 |
+| Dashboard response time | <100ms |
+
+---
+
+## Development History
+
+| Phase | Date | What Was Built |
+|-------|------|----------------|
+| **Phase 1** | Feb 3, 2026 | Core simulator engine: circuit builder, 35+ gates, statevector & density matrix backends, OpenQASM 2.0 parser. Tests: 41 → 353. |
+| **Phase 2** | Feb 7, 2026 | Interactive Quantum Lab: Flask dashboard (8 endpoints, 63 KB frontend), 33 tests. Strategic vision defined. |
+| **Phase 2.1** | Feb 7, 2026 | Desktop app: pywebview native window, Bloch sphere, step mode, 8 presets, QASM I/O, in-app help modal. |
+| **Phase 2.2** | Feb 7, 2026 | Packaging: custom logo (SVG/ICO/PNG), 16-page PDF manual, PyInstaller exe (33 MB), Inno Setup Windows installer, automated build pipeline. |
+
+---
+
+## Built With
+
+- **Python 3.10+** — Core language
+- **NumPy** — Linear algebra engine
+- **Flask** — Dashboard REST API
+- **pywebview** — Native Windows rendering (Edge WebView2)
+- **PyInstaller** — Executable packaging
+- **Pillow** — Logo/icon generation
+- **reportlab** — PDF manual creation
+- **Inno Setup** — Windows installer compiler
+
+---
+
+## Roadmap
+
+- [ ] Parameter-shift gradients for VQE/QAOA optimization
+- [ ] PySCF integration for real molecular Hamiltonians
+- [ ] Zero-noise extrapolation (ZNE) error mitigation
+- [ ] Qiskit circuit import compatibility
+- [ ] PyPI packaging (`pip install tiny-qpu`)
+- [ ] CLI tool: `tiny-qpu serve`, `tiny-qpu demo`, `tiny-qpu benchmark`
+- [ ] Educational mode with step-by-step explanations
+- [ ] Linux and macOS desktop app support
+- [ ] GPU-accelerated simulation backend
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">
+  <sub>Built for learning. Useful for real quantum algorithms. Ships as native Windows software.</sub>
+</p>
