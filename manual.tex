@@ -1,0 +1,1068 @@
+\documentclass[11pt,a4paper]{report}
+
+% ── Packages ──
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{physics}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black}
+\usepackage{fancyhdr}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{titlesec}
+
+\definecolor{codegreen}{RGB}{40,160,60}
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{exblue}{RGB}{30,80,160}
+\definecolor{noteorange}{RGB}{200,120,0}
+\definecolor{chapterblue}{RGB}{0,70,140}
+
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{chapterblue}}
+  {\chaptertitlename\ \thechapter}{20pt}{\Huge}
+\titleformat{\section}{\normalfont\Large\bfseries\color{chapterblue!80!black}}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textsc{tiny-qpu Technical Manual}}
+\fancyhead[R]{\small\textsc{\leftmark}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\lstdefinestyle{python}{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{red!60!black},
+  commentstyle=\color{codegreen}\itshape,
+  backgroundcolor=\color{codebg},
+  frame=single,framerule=0.4pt,rulecolor=\color{black!20},
+  xleftmargin=1em,framexleftmargin=0.5em,
+  breaklines=true,showstringspaces=false,tabsize=4,numbers=none,
+}
+\lstdefinestyle{qasm}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{codegreen}\itshape,
+  backgroundcolor=\color{codebg},
+  frame=single,framerule=0.4pt,rulecolor=\color{black!20},
+  xleftmargin=1em,framexleftmargin=0.5em,
+  breaklines=true,
+  morekeywords={OPENQASM,include,qreg,creg,measure,barrier,if,gate},
+}
+
+\newtcolorbox{exercisebox}[1][]{%
+  colback=exblue!5,colframe=exblue!70,fonttitle=\bfseries,
+  title={#1},breakable,left=6pt,right=6pt,top=4pt,bottom=4pt}
+\newtcolorbox{notebox}{%
+  colback=noteorange!8,colframe=noteorange!70,fonttitle=\bfseries,
+  title={Note},breakable,left=6pt,right=6pt,top=4pt,bottom=4pt}
+\newtcolorbox{importantbox}{%
+  colback=red!5,colframe=red!60!black,fonttitle=\bfseries,
+  title={Important},breakable,left=6pt,right=6pt,top=4pt,bottom=4pt}
+
+\newcommand{\gate}[1]{\texttt{#1}}
+\newcommand{\qs}[1]{\ensuremath{\ket{#1}}}
+\newcommand{\proj}[1]{\ensuremath{\ketbra{#1}{#1}}}
+
+\begin{document}
+
+% ── Title page ──
+\begin{titlepage}
+\centering
+\vspace*{3cm}
+{\Huge\bfseries\color{chapterblue} tiny-qpu\par}
+\vspace{0.5cm}
+{\LARGE Technical Manual \&\\Quantum Computing Primer\par}
+\vspace{1.5cm}
+{\large\textsc{Comprehensive Reference}\par}
+\vspace{0.5cm}
+\rule{0.6\textwidth}{0.4pt}\par
+\vspace{1cm}
+{\large
+Quantum computing foundations, gate mathematics,\\
+algorithm deep dives, simulator architecture,\\
+worked examples, and 40+ exercises.\\[0.5em]
+From first qubit to Shor's algorithm.\par}
+\vspace{2cm}
+{\large Version 2.0 --- February 2026\par}
+\vfill
+{\small\texttt{github.com/SKBiswas1998/tiny-qpu}}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+%═══════════════════════════════════════════
+% CHAPTER 1: MATHEMATICAL FOUNDATIONS
+%═══════════════════════════════════════════
+\chapter{Mathematical Foundations of Quantum Computing}
+
+\section{Complex Numbers}
+
+Quantum mechanics is built on complex numbers. A complex number $z = a + bi$ has real part $a$ and imaginary part $b$, where $i^2 = -1$. The \textbf{complex conjugate} is $z^* = a - bi$. The \textbf{modulus} is:
+\begin{equation}
+|z| = \sqrt{a^2 + b^2}, \qquad |z|^2 = zz^* = a^2 + b^2
+\end{equation}
+
+The \textbf{polar form} connects magnitude and phase:
+\begin{equation}
+z = |z|\, e^{i\theta} = |z|(\cos\theta + i\sin\theta), \qquad \theta = \mathrm{atan2}(b,\, a)
+\end{equation}
+
+Two amplitudes with opposite phases cancel (\textit{destructive interference}); two with identical phases reinforce (\textit{constructive interference}). Every quantum algorithm exploits interference.
+
+\textbf{Euler's formula} and important special cases:
+\begin{equation}
+e^{i\pi} = -1, \qquad e^{i\pi/2} = i, \qquad e^{i\pi/4} = \frac{1+i}{\sqrt{2}}
+\end{equation}
+
+\section{Linear Algebra Essentials}
+
+Quantum states live in \textbf{Hilbert space} --- a complex vector space equipped with an inner product. For $n$ qubits the state space has dimension $2^n$.
+
+\subsection{Inner Product}
+\begin{equation}
+\braket{\mathbf{a}}{\mathbf{b}} = \sum_i a_i^* b_i
+\end{equation}
+Orthogonal states satisfy $\braket{a}{b} = 0$. An orthonormal basis satisfies $\braket{i}{j} = \delta_{ij}$.
+
+\subsection{Tensor (Kronecker) Product}
+Combining system $A$ (dimension $d_A$) with $B$ (dimension $d_B$) yields dimension $d_A \times d_B$. For two qubits: $2 \times 2 = 4$ dimensional. Explicitly:
+\begin{equation}
+\begin{pmatrix} a_1 \\ a_2 \end{pmatrix} \otimes \begin{pmatrix} b_1 \\ b_2 \end{pmatrix}
+= \begin{pmatrix} a_1 b_1 \\ a_1 b_2 \\ a_2 b_1 \\ a_2 b_2 \end{pmatrix}
+\end{equation}
+
+\subsection{Unitary Matrices}
+A matrix $U$ is \textbf{unitary} if $UU^\dagger = U^\dagger U = I$, where $U^\dagger$ is the conjugate transpose. All quantum gates are unitary, guaranteeing:
+\begin{itemize}[nosep]
+  \item Reversibility: $U^{-1} = U^\dagger$.
+  \item Norm preservation: $\|U\ket{\psi}\| = \|\ket{\psi}\|$ (total probability conserved).
+\end{itemize}
+
+\subsection{Hermitian Matrices}
+A matrix $H$ is \textbf{Hermitian} if $H = H^\dagger$. Observables are Hermitian operators: eigenvalues are real, eigenvectors form an orthonormal basis. The Pauli matrices $X$, $Y$, $Z$ are both unitary \emph{and} Hermitian.
+
+\section{Dirac (Bra-Ket) Notation}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Notation} & \textbf{Meaning} & \textbf{Example} \\
+\midrule
+$\ket{\psi}$ & Column vector (ket) & $\ket{0} = (1,\, 0)^T$ \\[4pt]
+$\bra{\psi}$ & Row vector (bra) & $\bra{0} = (1,\, 0)$ \\[4pt]
+$\braket{\phi}{\psi}$ & Inner product (scalar) & $\braket{0}{1} = 0$ \\[4pt]
+$\ketbra{\psi}{\phi}$ & Outer product (operator) & $\ketbra{0}{0} = \mathrm{diag}(1, 0)$ \\[4pt]
+$U\ket{\psi}$ & Operator acting on state & $X\ket{0} = \ket{1}$ \\[4pt]
+$\mel{\psi}{A}{\phi}$ & Matrix element & $\mel{0}{Z}{0} = 1$ \\
+\bottomrule
+\end{tabular}
+\caption{Dirac notation summary.}
+\end{table}
+
+\begin{exercisebox}[Exercises --- Chapter 1]
+\textbf{1.1.} Compute $|z|^2$ for $z = (1+i)/\sqrt{2}$. Convert to polar form and find the phase angle $\theta$.\\[4pt]
+\textbf{1.2.} Verify that $H = \frac{1}{\sqrt{2}}\left(\begin{smallmatrix}1&1\\1&-1\end{smallmatrix}\right)$ is unitary by computing $HH^\dagger$ and showing it equals $I$.\\[4pt]
+\textbf{1.3.} Compute $\ket{+} \otimes \ket{0}$ where $\ket{+} = (\ket{0}+\ket{1})/\sqrt{2}$. Write as a 4-component vector. Which basis states have nonzero amplitude?\\[4pt]
+\textbf{1.4.} Show that the eigenvalues of Pauli-$Z$ are $+1$ and $-1$, with eigenvectors $\ket{0}$ and $\ket{1}$. \textit{Hint: solve $Z\ket{v} = \lambda\ket{v}$.}
+\end{exercisebox}
+
+
+%═══════════════════════════════════════════
+% CHAPTER 2: THE QUBIT
+%═══════════════════════════════════════════
+\chapter{The Qubit}
+
+\section{Computational Basis States}
+
+A \textbf{qubit} is the fundamental unit of quantum information. Unlike a classical bit, a qubit exists in a \textbf{superposition}:
+\begin{equation}
+\ket{\psi} = \alpha\ket{0} + \beta\ket{1}
+\end{equation}
+where $\alpha, \beta \in \mathbb{C}$ are \textbf{probability amplitudes} satisfying:
+\begin{equation}
+|\alpha|^2 + |\beta|^2 = 1
+\end{equation}
+
+The computational basis states are:
+\begin{equation}
+\ket{0} = \begin{pmatrix}1\\0\end{pmatrix}, \qquad \ket{1} = \begin{pmatrix}0\\1\end{pmatrix}
+\end{equation}
+
+Upon measurement, the qubit \textbf{collapses} to $\ket{0}$ with probability $P(0) = |\alpha|^2$ or to $\ket{1}$ with probability $P(1) = |\beta|^2$. The superposition is irreversibly destroyed.
+
+\section{The Bloch Sphere}
+
+Any single-qubit pure state can be parameterized as:
+\begin{equation}\label{eq:bloch}
+\ket{\psi} = \cos\frac{\theta}{2}\ket{0} + e^{i\phi}\sin\frac{\theta}{2}\ket{1}
+\end{equation}
+where $\theta \in [0, \pi]$ and $\phi \in [0, 2\pi)$. The Bloch vector coordinates are:
+\begin{equation}
+x = \sin\theta\cos\phi, \qquad y = \sin\theta\sin\phi, \qquad z = \cos\theta
+\end{equation}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{State} & $\theta$ & $\phi$ & \textbf{Bloch $(x,y,z)$} & \textbf{Meaning} \\
+\midrule
+$\ket{0}$ & $0$ & --- & $(0,0,+1)$ & North pole \\
+$\ket{1}$ & $\pi$ & --- & $(0,0,-1)$ & South pole \\
+$\ket{+}$ & $\pi/2$ & $0$ & $(+1,0,0)$ & Positive $x$ \\
+$\ket{-}$ & $\pi/2$ & $\pi$ & $(-1,0,0)$ & Negative $x$ \\
+$\ket{+i}$ & $\pi/2$ & $\pi/2$ & $(0,+1,0)$ & Positive $y$ \\
+$\ket{-i}$ & $\pi/2$ & $3\pi/2$ & $(0,-1,0)$ & Negative $y$ \\
+\bottomrule
+\end{tabular}
+\caption{Standard states on the Bloch sphere.}
+\end{table}
+
+Quantum gates correspond to \textbf{rotations} of the Bloch sphere.
+
+\begin{notebox}
+In the Quantum Lab, the Bloch sphere displays the state vector in real time. When a qubit is entangled, its reduced state is mixed and the Bloch vector shrinks toward the origin --- a visual signature of entanglement.
+\end{notebox}
+
+\section{Global Phase vs.\ Relative Phase}
+
+A \textbf{global phase} $e^{i\gamma}\ket{\psi}$ is physically undetectable. A \textbf{relative phase} between components is observable:
+\begin{align}
+\ket{+} &= \tfrac{1}{\sqrt{2}}(\ket{0} + \ket{1}), \qquad
+\ket{-} = \tfrac{1}{\sqrt{2}}(\ket{0} - \ket{1})
+\end{align}
+After applying $H$: $H\ket{+} = \ket{0}$ (always 0), $H\ket{-} = \ket{1}$ (always 1). Relative phase is the resource quantum algorithms manipulate.
+
+\section{Mixed States and the Density Matrix}
+
+A pure state has density matrix $\rho = \ketbra{\psi}{\psi}$. A \textbf{mixed state} is:
+\begin{equation}
+\rho = \sum_i p_i \ketbra{\psi_i}{\psi_i}, \qquad \sum_i p_i = 1
+\end{equation}
+Purity: $\mathrm{Tr}(\rho^2) = 1$ for pure states, $< 1$ for mixed. Entangled qubits have mixed reduced density matrices.
+
+\begin{exercisebox}[Exercises --- Chapter 2]
+\textbf{2.1.} Given $\ket{\psi} = \frac{1}{2}\ket{0} + \frac{\sqrt{3}}{2}\ket{1}$, compute $P(0)$, $P(1)$, and find Bloch angles $\theta$, $\phi$.\\[4pt]
+\textbf{2.2.} For $\ket{\psi} = \frac{1}{\sqrt{2}}\ket{0} + \frac{i}{\sqrt{2}}\ket{1}$, identify $\theta$ and $\phi$. Verify: apply $R_y(\pi/2)$ then $S$ to $\ket{0}$ in the Lab.\\[4pt]
+\textbf{2.3.} Apply $H$ to $\ket{0}$ in step mode. Record the Bloch vector. Add $Z$ after $H$. How does it change?\\[4pt]
+\textbf{2.4.} Show $\ket{+}$ and $-\ket{+}$ are physically identical by computing the density matrix for each.
+\end{exercisebox}
+
+
+%═══════════════════════════════════════════
+% CHAPTER 3: QUANTUM GATES
+%═══════════════════════════════════════════
+\chapter{Quantum Gates: Complete Reference}
+
+All quantum gates are \textbf{unitary operators}. Gate $U$ applied to $\ket{\psi}$ gives $U\ket{\psi}$; the inverse is $U^\dagger$.
+
+\section{Pauli Gates}
+
+The Pauli matrices with $I$ form a basis for all $2\times 2$ Hermitian matrices:
+\begin{equation}
+X^2 = Y^2 = Z^2 = I, \qquad XY = iZ \;\text{(cyclic)}
+\end{equation}
+
+\subsection{Pauli-$X$ (Bit Flip)}
+\begin{equation}
+X = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}
+\end{equation}
+$X\ket{0} = \ket{1}$, $X\ket{1} = \ket{0}$. Bloch: $180°$ rotation about $x$-axis. Eigenvalues: $\pm 1$ with eigenvectors $\ket{\pm}$.
+
+\subsection{Pauli-$Y$ (Bit + Phase Flip)}
+\begin{equation}
+Y = \begin{pmatrix} 0 & -i \\ i & 0 \end{pmatrix}
+\end{equation}
+$Y\ket{0} = i\ket{1}$, $Y\ket{1} = -i\ket{0}$. Relation: $Y = iXZ$. Bloch: $180°$ about $y$-axis.
+
+\subsection{Pauli-$Z$ (Phase Flip)}
+\begin{equation}
+Z = \begin{pmatrix} 1 & 0 \\ 0 & -1 \end{pmatrix}
+\end{equation}
+$Z\ket{0} = \ket{0}$, $Z\ket{1} = -\ket{1}$. Adds phase $\pi$ to $\ket{1}$. Bloch: $180°$ about $z$-axis. Note: $Z\ket{+} = \ket{-}$.
+
+\section{The Hadamard Gate}
+\begin{equation}
+H = \frac{1}{\sqrt{2}}\begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}
+\end{equation}
+$H\ket{0} = \ket{+}$, $H\ket{1} = \ket{-}$. Self-inverse: $H^2 = I$. Key identities:
+\begin{equation}
+HZH = X, \qquad HXH = Z
+\end{equation}
+\textbf{Quantum parallelism:}
+\begin{equation}
+H^{\otimes n}\ket{0}^{\otimes n} = \frac{1}{\sqrt{2^n}} \sum_{x=0}^{2^n - 1} \ket{x}
+\end{equation}
+
+\section{Phase Gates: $S$, $T$, $P(\theta)$}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Gate} & \textbf{Matrix} & \textbf{Phase on $\ket{1}$} & \textbf{Bloch} & \textbf{Relation} \\
+\midrule
+$S$ & $\left(\begin{smallmatrix}1&0\\0&i\end{smallmatrix}\right)$ & $\pi/2$ & $z$ by $90°$ & $S^2 = Z$ \\[6pt]
+$T$ & $\left(\begin{smallmatrix}1&0\\0&e^{i\pi/4}\end{smallmatrix}\right)$ & $\pi/4$ & $z$ by $45°$ & $T^2 = S$ \\[6pt]
+$P(\theta)$ & $\left(\begin{smallmatrix}1&0\\0&e^{i\theta}\end{smallmatrix}\right)$ & $\theta$ & $z$ by $\theta$ & General phase \\
+\bottomrule
+\end{tabular}
+\caption{Phase gates.}
+\end{table}
+
+\begin{importantbox}
+The gate set $\{H, T, \mathrm{CNOT}\}$ is \textbf{universal} --- any unitary can be approximated to arbitrary precision (Solovay--Kitaev theorem).
+\end{importantbox}
+
+\section{Rotation Gates}
+
+\begin{align}
+R_x(\theta) &= \cos\tfrac{\theta}{2}\, I - i\sin\tfrac{\theta}{2}\, X
+= \begin{pmatrix} \cos\frac{\theta}{2} & -i\sin\frac{\theta}{2} \\ -i\sin\frac{\theta}{2} & \cos\frac{\theta}{2} \end{pmatrix} \\[6pt]
+R_y(\theta) &= \cos\tfrac{\theta}{2}\, I - i\sin\tfrac{\theta}{2}\, Y
+= \begin{pmatrix} \cos\frac{\theta}{2} & -\sin\frac{\theta}{2} \\ \sin\frac{\theta}{2} & \cos\frac{\theta}{2} \end{pmatrix} \\[6pt]
+R_z(\theta) &= \begin{pmatrix} e^{-i\theta/2} & 0 \\ 0 & e^{i\theta/2} \end{pmatrix}
+\end{align}
+
+\textbf{$ZYZ$ decomposition:} Any single-qubit unitary:
+\begin{equation}
+U = e^{i\alpha}\, R_z(\beta)\, R_y(\gamma)\, R_z(\delta)
+\end{equation}
+
+\section{Multi-Qubit Gates}
+
+\subsection{CNOT (CX)}
+\begin{equation}
+\mathrm{CNOT} = \begin{pmatrix} 1&0&0&0 \\ 0&1&0&0 \\ 0&0&0&1 \\ 0&0&1&0 \end{pmatrix}
+= \proj{0} \otimes I + \proj{1} \otimes X
+\end{equation}
+Flips target iff control is $\ket{1}$. Primary \textbf{entangling gate}:
+\begin{equation}
+\ket{00} \;\xrightarrow{H\otimes I}\; \frac{\ket{00}+\ket{10}}{\sqrt{2}} \;\xrightarrow{\mathrm{CNOT}}\; \frac{\ket{00}+\ket{11}}{\sqrt{2}} = \ket{\Phi^+}
+\end{equation}
+
+\subsection{CZ (Controlled-$Z$)}
+$\ket{11} \to -\ket{11}$, all others unchanged. CZ is symmetric: $\mathrm{CZ}(a,b) = \mathrm{CZ}(b,a)$.
+
+\subsection{SWAP}
+$\mathrm{SWAP}\ket{a,b} = \ket{b,a}$. Decomposition:
+\begin{equation}
+\mathrm{SWAP} = \mathrm{CNOT}(0,1)\;\mathrm{CNOT}(1,0)\;\mathrm{CNOT}(0,1)
+\end{equation}
+
+\subsection{Toffoli (CCX)}
+Flips target iff \emph{both} controls are $\ket{1}$. \textbf{Universal for classical computation.} Used in Grover's oracle and arithmetic circuits.
+
+\subsection{Fredkin (CSWAP)}
+Controlled-SWAP. Used in quantum comparison and the SWAP test.
+
+\subsection{$CR_z(\theta)$}
+Controlled-$R_z$. Essential in QFT circuits where controlled rotations by $2\pi/2^k$ create Fourier phases.
+
+\begin{exercisebox}[Exercises --- Chapter 3]
+\textbf{3.1.} Verify $HZH = X$ by matrix multiplication. What does this tell you about how $H$ relates the $Z$-basis and $X$-basis?\\[4pt]
+\textbf{3.2.} Compute $R_x(\pi/2)\ket{0}$ by hand. Express in Bloch coordinates. Verify in the Lab.\\[4pt]
+\textbf{3.3.} Build $H, T, H$ in the Lab. Record probabilities. Replace $T$ with $S$ and compare.\\[4pt]
+\textbf{3.4.} Prove CNOT creates entanglement: show $(\ket{00}+\ket{11})/\sqrt{2}$ cannot be factored as $\ket{a}\otimes\ket{b}$.\\[4pt]
+\textbf{3.5.} Decompose SWAP into three CNOTs by computing on all four basis states.
+\end{exercisebox}
+
+
+%═══════════════════════════════════════════
+% CHAPTER 4: MULTI-QUBIT SYSTEMS
+%═══════════════════════════════════════════
+\chapter{Multi-Qubit Systems and Entanglement}
+
+\section{Tensor Products and State Spaces}
+
+An $n$-qubit system has state space dimension $2^n$. The general state:
+\begin{equation}
+\ket{\psi} = \sum_{x=0}^{2^n - 1} c_x \ket{x}, \qquad \sum_x |c_x|^2 = 1
+\end{equation}
+
+For 2 qubits, the basis is $\{\ket{00}, \ket{01}, \ket{10}, \ket{11}\}$ requiring 4 complex amplitudes. For 30 qubits: over $10^9$ amplitudes --- this exponential scaling makes classical simulation intractable.
+
+A \textbf{separable state} can be written as $\ket{\psi} = \ket{a} \otimes \ket{b}$. An \textbf{entangled state} cannot.
+
+\section{The Four Bell States}
+
+The Bell states form a maximally entangled orthonormal basis for two qubits:
+\begin{align}
+\ket{\Phi^+} &= \frac{\ket{00}+\ket{11}}{\sqrt{2}} &\quad &\text{Same outcomes, no phase} \\
+\ket{\Phi^-} &= \frac{\ket{00}-\ket{11}}{\sqrt{2}} &\quad &\text{Same outcomes, $\pi$ phase} \\
+\ket{\Psi^+} &= \frac{\ket{01}+\ket{10}}{\sqrt{2}} &\quad &\text{Opposite outcomes, no phase} \\
+\ket{\Psi^-} &= \frac{\ket{01}-\ket{10}}{\sqrt{2}} &\quad &\text{Opposite outcomes, $\pi$ phase}
+\end{align}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}llcc@{}}
+\toprule
+\textbf{State} & \textbf{Circuit} & \textbf{$P(\text{same})$} & \textbf{$P(\text{diff})$} \\
+\midrule
+$\ket{\Phi^+}$ & $H(q_0),\; \mathrm{CX}(q_0, q_1)$ & 1 & 0 \\
+$\ket{\Phi^-}$ & $X(q_0),\; H(q_0),\; \mathrm{CX}(q_0, q_1)$ & 1 & 0 \\
+$\ket{\Psi^+}$ & $H(q_0),\; \mathrm{CX}(q_0, q_1),\; X(q_1)$ & 0 & 1 \\
+$\ket{\Psi^-}$ & $X(q_0),\; H(q_0),\; \mathrm{CX}(q_0, q_1),\; X(q_1)$ & 0 & 1 \\
+\bottomrule
+\end{tabular}
+\caption{Bell state preparation circuits and measurement correlations.}
+\end{table}
+
+Measuring one qubit of a Bell pair \textbf{instantaneously} determines the other's outcome. This cannot transmit information faster than light (the result is random).
+
+\section{GHZ and W States}
+\begin{align}
+\ket{\mathrm{GHZ}} &= \frac{\ket{000} + \ket{111}}{\sqrt{2}} \\
+\ket{W} &= \frac{\ket{001} + \ket{010} + \ket{100}}{\sqrt{3}}
+\end{align}
+GHZ: maximally entangled but fragile --- losing one qubit destroys all entanglement. W: more robust --- tracing out one qubit still leaves the other two entangled. These belong to different \textbf{entanglement classes}.
+
+\section{Quantifying Entanglement}
+
+For a bipartite state $\ket{\psi}_{AB}$, the \textbf{von Neumann entropy}:
+\begin{equation}
+S(\rho_A) = -\mathrm{Tr}(\rho_A \log_2 \rho_A)
+\end{equation}
+where $\rho_A = \mathrm{Tr}_B(\ketbra{\psi}{\psi})$. $S = 0$ for separable states, $S = 1$ for maximally entangled qubit pairs.
+
+\begin{exercisebox}[Exercises --- Chapter 4]
+\textbf{4.1.} Build all four Bell states in the Lab. Record the probability distribution and Bloch vector length for each qubit.\\[4pt]
+\textbf{4.2.} Create $(\ket{00}+\ket{01}+\ket{10}+\ket{11})/2$ using $H(q_0), H(q_1)$. Is it entangled? Write it as a tensor product to prove your answer.\\[4pt]
+\textbf{4.3.} Build a 4-qubit GHZ state. How many basis states have nonzero probability?\\[4pt]
+\textbf{4.4.} Build the W state on 3 qubits. \textit{Hint: $R_y(2\arccos(1/\sqrt{3}))$ on $q_0$, then conditional gates.} Compare Bloch vectors to GHZ.
+\end{exercisebox}
+
+
+%═══════════════════════════════════════════
+% CHAPTER 5: MEASUREMENT
+%═══════════════════════════════════════════
+\chapter{Measurement Theory}
+
+\section{Born's Rule (Projective Measurement)}
+
+Measuring observable $O$ with eigenvalues $\{\lambda_k\}$ and projectors $\{P_k = \ketbra{k}{k}\}$:
+\begin{equation}
+P(\text{outcome } k) = \mel{\psi}{P_k}{\psi} = |\braket{k}{\psi}|^2
+\end{equation}
+\begin{equation}
+\text{Post-measurement state:} \quad \ket{\psi'} = \frac{P_k\ket{\psi}}{\sqrt{P(k)}}
+\end{equation}
+
+Measurement is \textbf{irreversible}, \textbf{probabilistic}, and \textbf{disturbing}. It collapses superposition and can create or destroy entanglement.
+
+\section{Measurement Bases}
+
+The computational ($Z$) basis $\{\ket{0}, \ket{1}\}$ is the default. To measure in a different basis, apply a change-of-basis unitary before measurement:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Basis} & \textbf{Pre-gate} & \textbf{Result 0} & \textbf{Result 1} \\
+\midrule
+$X$: $\{\ket{+}, \ket{-}\}$ & $H$ & Was $\ket{+}$ & Was $\ket{-}$ \\
+$Y$: $\{\ket{+i}, \ket{-i}\}$ & $S^\dagger$ then $H$ & Was $\ket{+i}$ & Was $\ket{-i}$ \\
+Arbitrary axis $\hat{n}$ & Appropriate rotation & Spin-up & Spin-down \\
+\bottomrule
+\end{tabular}
+\caption{Measurement in different bases.}
+\end{table}
+
+\section{Statevector vs.\ Shot-Based Results}
+
+\texttt{tiny-qpu} provides two complementary views:
+
+\textbf{Exact probabilities} (statevector): $P(k) = |c_k|^2$. Theoretical values with infinite precision.
+
+\textbf{Sampled histogram} (shots): Each shot randomly collapses according to exact probabilities. With $N$ shots, the count for state $k$ follows $\mathrm{Binomial}(N, P(k))$ with standard deviation $\sqrt{NP(k)(1-P(k))}$. More shots = less noise.
+
+\begin{notebox}
+A real quantum computer only gives the histogram. The simulator's ability to show exact probabilities alongside statistical counts is a powerful learning tool.
+\end{notebox}
+
+\section{Partial Measurement}
+
+Measuring a subset of qubits projects onto the measured subspace. If we measure the first qubit of $\alpha\ket{00} + \beta\ket{01} + \gamma\ket{10} + \delta\ket{11}$ and get $\ket{0}$, the post-measurement state is:
+\begin{equation}
+\ket{\psi'} = \frac{\alpha\ket{00} + \beta\ket{01}}{\sqrt{|\alpha|^2 + |\beta|^2}}
+\end{equation}
+
+\begin{exercisebox}[Exercises --- Chapter 5]
+\textbf{5.1.} Create $R_y(\pi/3)\ket{0}$. Compute exact probabilities. Run with 100 and 10{,}000 shots. Calculate expected standard deviation and compare.\\[4pt]
+\textbf{5.2.} Create $\ket{+}$ ($H$ on $\ket{0}$). Measure: expect 50/50. Now add $H$ before measurement ($HH = I$). What happens? Explain.\\[4pt]
+\textbf{5.3.} Create Bell state $\ket{\Phi^+}$. What are the phases of the nonzero amplitudes? How would $\ket{\Phi^-}$ differ?
+\end{exercisebox}
+
+
+%═══════════════════════════════════════════
+% CHAPTER 6: SIMULATOR ENGINE
+%═══════════════════════════════════════════
+\chapter{The tiny-qpu Simulator Engine}
+
+\section{Architecture Overview}
+
+\texttt{tiny-qpu} is a classical simulator that maintains the full quantum state in memory and applies gate operations as linear algebra transformations.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Component} & \textbf{Module} & \textbf{Purpose} \\
+\midrule
+Circuit builder & \texttt{circuit.py} & Gate sequence construction, QASM parsing \\
+Gate library & \texttt{gates.py} & 35+ gate matrices (NumPy arrays) \\
+Statevector backend & \texttt{backends/statevector.py} & Pure-state simulation \\
+Density matrix backend & \texttt{backends/density\_matrix.py} & Mixed states, noise channels \\
+QASM parser & \texttt{qasm/parser.py} & OpenQASM 2.0 tokenizer \\
+Dashboard & \texttt{dashboard/server.py} & Flask REST API for the Lab UI \\
+\bottomrule
+\end{tabular}
+\caption{Simulator architecture.}
+\end{table}
+
+\section{Statevector Backend}
+
+Stores the quantum state as a complex vector of $2^n$ amplitudes. A single-qubit gate $U$ on qubit $k$ is applied via the tensor product $I^{\otimes(k)} \otimes U \otimes I^{\otimes(n-k-1)}$.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}cccc@{}}
+\toprule
+\textbf{Qubits} & \textbf{Amplitudes} & \textbf{Memory} & \textbf{Time} \\
+\midrule
+1--6 & 2--64 & $<1$ KB & Instant \\
+10 & 1{,}024 & 16 KB & $<1$ ms \\
+15 & 32{,}768 & 512 KB & $\sim$10 ms \\
+20 & 1{,}048{,}576 & 16 MB & $\sim$1 s \\
+25 & 33{,}554{,}432 & 512 MB & $\sim$minutes \\
+\bottomrule
+\end{tabular}
+\caption{Statevector backend scaling.}
+\end{table}
+
+\section{Density Matrix Backend}
+
+Stores $\rho$ as a $2^n \times 2^n$ complex matrix. Gate application: $\rho' = U\rho U^\dagger$. Noise via Kraus operators: $\rho' = \sum_k E_k \rho E_k^\dagger$. Memory: $16 \times 4^n$ bytes. Practical limit: 12--15 qubits.
+
+\section{Python API}
+
+\begin{lstlisting}[style=python]
+from tiny_qpu.circuit import QuantumCircuit
+
+qc = QuantumCircuit(2)
+qc.h(0)              # Hadamard on qubit 0
+qc.cx(0, 1)          # CNOT: control=0, target=1
+result = qc.simulate(shots=1024)
+
+print(result.counts)        # {'00': ~512, '11': ~512}
+print(result.statevector)   # [0.707+0j, 0, 0, 0.707+0j]
+print(result.probabilities) # [0.5, 0.0, 0.0, 0.5]
+\end{lstlisting}
+
+\begin{lstlisting}[style=python]
+# OpenQASM integration
+from tiny_qpu.qasm import parse_qasm
+
+qasm = '''OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+h q[0];
+cx q[0],q[1];'''
+circuit = parse_qasm(qasm)
+result = circuit.simulate(shots=1000)
+\end{lstlisting}
+
+\begin{exercisebox}[Exercises --- Chapter 6]
+\textbf{6.1.} Using the Python API, create a 3-qubit GHZ state and print the statevector. Verify exactly two nonzero amplitudes, each $1/\sqrt{2}$.\\[4pt]
+\textbf{6.2.} Write a QASM circuit for the 2-qubit Deutsch--Jozsa algorithm. Execute with \texttt{parse\_qasm}. What does the measurement tell you about the oracle?
+\end{exercisebox}
+
+
+%═══════════════════════════════════════════
+% CHAPTER 7: QUANTUM LAB
+%═══════════════════════════════════════════
+\chapter{The Interactive Quantum Lab}
+
+\section{Launching}
+
+The Lab runs as a native Windows desktop application (pywebview + Flask):
+\begin{lstlisting}[style=python]
+# Native window (recommended)
+tiny-qpu.exe                        # standalone build
+python tiny_qpu_launcher.py         # from source
+
+# Browser fallback
+python tiny_qpu_launcher.py --browser
+\end{lstlisting}
+
+\section{Interface Layout}
+
+\begin{description}[leftmargin=1.5cm,style=nextline]
+  \item[Header] Logo, qubit selector (1--8), shot count input.
+  \item[Left Panel] Gate palette: 20 gates organized by category (single-qubit fixed, rotation, multi-qubit, measurement). Below: 8 preset circuits.
+  \item[Center Panel] Circuit builder: qubit wires, placed gates, toolbar (Run, Step, Clear, Undo), status bar showing gate count and depth.
+  \item[Right Panel] Bloch sphere per qubit, probability bars, measurement histogram, amplitude table (state / amplitude / phase / probability), QASM editor.
+\end{description}
+
+\section{Building Circuits}
+
+\textbf{Placing gates:} Click a gate in the palette then click a qubit wire, or drag directly. Gates auto-place in the earliest available column.
+
+\textbf{Multi-qubit gates:} Click the top qubit (control). The target is automatically assigned to adjacent qubits. CX/CZ/SWAP span 2 qubits; CCX/CSWAP span 3.
+
+\textbf{Rotation gates:} A dialog prompts for the angle in radians with quick-select buttons for $\pi$, $\pi/2$, $\pi/4$, $\pi/3$, $-\pi/2$, and $0$.
+
+\textbf{Removing gates:} Click any placed gate to remove it, or press Ctrl+Z to undo.
+
+\section{Step-by-Step Mode}
+
+Press \textbf{S} or click Step. An amber indicator appears. Use arrow keys or Next/Prev buttons to advance gate by gate. At each step the right panel shows the intermediate quantum state.
+
+\textbf{What to observe:} (1) Which gate is highlighted, (2) Bloch vector movement, (3) probability redistribution, (4) states appearing/disappearing in the amplitude table, (5) purity changes.
+
+\begin{notebox}
+Step 0 shows the initial state $\ket{0\cdots0}$ before any gates. This is the most effective way to understand how each gate transforms the quantum state.
+\end{notebox}
+
+\section{Preset Circuits}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Preset} & \textbf{Concept} & \textbf{Key Observation} \\
+\midrule
+Bell State & Entanglement & Bloch vectors shrink; only $\ket{00}$, $\ket{11}$ \\
+GHZ State & Multi-party entanglement & 3 mixed qubits, globally pure \\
+Superposition & $H$ on all qubits & All $2^n$ states equally likely \\
+Teleportation & State transfer & $q_0$'s state appears on $q_2$ \\
+Deutsch--Jozsa & Quantum parallelism & Single query decides constant vs balanced \\
+QFT (2-qubit) & Fourier transform & Phase info in relative phases \\
+Grover & Amplitude amplification & Target goes from 25\% to $\sim$100\% \\
+Bit-Flip Code & Error correction & Encoded state survives $X$ error \\
+\bottomrule
+\end{tabular}
+\caption{Preset circuits and learning objectives.}
+\end{table}
+
+\section{REST API}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Endpoint} & \textbf{Method} & \textbf{Description} \\
+\midrule
+\texttt{/api/simulate} & POST & Run circuit, return full results \\
+\texttt{/api/step} & POST & Partial execution (first $k$ gates) \\
+\texttt{/api/qasm/import} & POST & Parse QASM to gate list \\
+\texttt{/api/qasm/export} & POST & Gate list to QASM string \\
+\texttt{/api/presets} & GET & List available presets \\
+\texttt{/api/presets/<name>} & GET & Get specific preset \\
+\texttt{/api/gates} & GET & Gate catalog \\
+\texttt{/health} & GET & Health check \\
+\bottomrule
+\end{tabular}
+\caption{REST API endpoints.}
+\end{table}
+
+
+%═══════════════════════════════════════════
+% CHAPTER 8: ALGORITHMS
+%═══════════════════════════════════════════
+\chapter{Algorithm Deep Dives}
+
+\section{Quantum Teleportation}
+
+Transfers unknown state $\ket{\psi} = \alpha\ket{0} + \beta\ket{1}$ from Alice ($q_0$) to Bob ($q_2$) using one shared Bell pair and two classical bits. The original is destroyed (no-cloning theorem).
+
+\textbf{Protocol:}
+\begin{enumerate}[nosep]
+  \item \textbf{Prepare:} $q_0$ in $\ket{\psi}$. Create Bell pair: $H(q_1)$, $\mathrm{CX}(q_1, q_2)$.
+  \item \textbf{Bell measurement:} $\mathrm{CX}(q_0, q_1)$, $H(q_0)$. Measure $q_0$ and $q_1$.
+  \item \textbf{Correction:} If $q_1 = 1$: apply $X(q_2)$. If $q_0 = 1$: apply $Z(q_2)$.
+  \item \textbf{Result:} $q_2$ is now in state $\ket{\psi}$.
+\end{enumerate}
+
+The three-qubit state before measurement expands as:
+\begin{equation}
+\ket{\Psi} = \frac{1}{2}\Big[\ket{00}(\alpha\ket{0}+\beta\ket{1}) + \ket{01}(\alpha\ket{1}+\beta\ket{0}) + \ket{10}(\alpha\ket{0}-\beta\ket{1}) + \ket{11}(\alpha\ket{1}-\beta\ket{0})\Big]
+\end{equation}
+Each Bell measurement outcome corresponds to a Pauli correction on $q_2$.
+
+\section{Deutsch--Jozsa Algorithm}
+
+Determines whether $f: \{0,1\}^n \to \{0,1\}$ is \textbf{constant} or \textbf{balanced} with a single query (classically requires up to $2^{n-1}+1$).
+
+\textbf{Circuit:}
+\begin{enumerate}[nosep]
+  \item Initialize: first $n$ qubits in $\ket{0}$, ancilla in $\ket{1}$.
+  \item Apply $H$ to all qubits.
+  \item Apply oracle $U_f$: $\ket{x,y} \to \ket{x, y \oplus f(x)}$.
+  \item Apply $H$ to first $n$ qubits.
+  \item Measure: all zeros $\Rightarrow$ constant; anything else $\Rightarrow$ balanced.
+\end{enumerate}
+
+\textbf{Key insight (phase kickback):} With ancilla in $\ket{-}$:
+\begin{equation}
+U_f\ket{x}\ket{-} = (-1)^{f(x)}\ket{x}\ket{-}
+\end{equation}
+The function value becomes a \textbf{phase}, which the final Hadamard converts to a measurable amplitude.
+
+\section{Grover's Search}
+
+Finds a marked item in an unsorted database of $N = 2^n$ items using $O(\sqrt{N})$ queries.
+
+\textbf{Algorithm:}
+\begin{enumerate}[nosep]
+  \item \textbf{Initialize:} $H^{\otimes n}\ket{0}^{\otimes n}$ (uniform superposition).
+  \item \textbf{Repeat} $\approx \frac{\pi}{4}\sqrt{N}$ times:
+    \begin{enumerate}[nosep]
+      \item \textbf{Oracle:} $O\ket{x} = (-1)^{\delta_{x,w}}\ket{x}$ (flip amplitude of target $\ket{w}$).
+      \item \textbf{Diffusion:} $D = 2\ketbra{s}{s} - I$ where $\ket{s}$ is the uniform superposition.
+    \end{enumerate}
+  \item \textbf{Measure.}
+\end{enumerate}
+
+\textbf{Geometric picture:} The state lives in the 2D plane spanned by $\ket{w}$ and $\ket{w^\perp}$. Each iteration rotates by $2\arcsin(1/\sqrt{N})$ toward $\ket{w}$. For $N=4$, one iteration reaches $\ket{w}$ exactly.
+
+\section{Quantum Fourier Transform (QFT)}
+
+\begin{equation}
+\mathrm{QFT}\ket{j} = \frac{1}{\sqrt{2^n}} \sum_{k=0}^{2^n-1} e^{2\pi i jk/2^n} \ket{k}
+\end{equation}
+
+\textbf{Circuit:} For each qubit $k$ (top to bottom): apply $H(k)$, then $CR_z(\pi/2^m)$ from $k$ to qubits $k+1, k+2, \ldots$ Finally, reverse qubit order with SWAPs. Total: $O(n^2)$ gates.
+
+\textbf{Applications:} Core subroutine of Shor's algorithm, quantum phase estimation, and quantum simulation.
+
+\section{Shor's Factoring Algorithm}
+
+Factors integer $N$ in $O(\log^3 N)$ operations (exponentially faster than best classical).
+
+\textbf{Steps:}
+\begin{enumerate}[nosep]
+  \item Choose random $a < N$. If $\gcd(a, N) > 1$, done.
+  \item \textbf{Quantum step:} Find the period $r$ of $f(x) = a^x \bmod N$ using quantum phase estimation + QFT.
+  \item If $r$ is even and $a^{r/2} \not\equiv -1 \pmod{N}$, compute $\gcd(a^{r/2} \pm 1, N)$.
+  \item At least one GCD is a nontrivial factor with probability $\geq 1/2$.
+\end{enumerate}
+
+\textbf{Example:} For $N = 15$, $a = 7$: period $r = 4$, giving $\gcd(7^2 + 1, 15) = \gcd(50, 15) = 5$ and $\gcd(7^2 - 1, 15) = \gcd(48, 15) = 3$.
+
+\section{Variational Quantum Eigensolver (VQE)}
+
+Hybrid quantum-classical algorithm for ground state energies. Based on the \textbf{variational principle}:
+\begin{equation}
+E(\vec{\theta}) = \mel{\psi(\vec{\theta})}{H}{\psi(\vec{\theta})} \geq E_{\text{ground}}
+\end{equation}
+
+\textbf{Loop:}
+\begin{enumerate}[nosep]
+  \item \textbf{Quantum:} Prepare ans\"atz $\ket{\psi(\vec{\theta})}$ with parameterized gates ($R_y$, CNOT).
+  \item \textbf{Quantum:} Measure $\ev{H}$ by decomposing into Pauli terms.
+  \item \textbf{Classical:} Optimizer (COBYLA, L-BFGS-B) updates $\vec{\theta}$ to minimize $E(\vec{\theta})$.
+  \item Repeat until convergence.
+\end{enumerate}
+
+\texttt{tiny-qpu} supports H$_2$, LiH, BeH$_2$, H$_2$O with pre-computed Hamiltonians and the UCCSD ans\"atz.
+
+\section{QAOA}
+
+Solves combinatorial optimization (MaxCut, TSP, portfolio) by alternating problem and mixer Hamiltonians:
+\begin{equation}
+\ket{\vec{\gamma}, \vec{\beta}} = \prod_{p=1}^{P} e^{-i\beta_p H_M}\, e^{-i\gamma_p H_C}\, \ket{+}^{\otimes n}
+\end{equation}
+Parameters optimized classically. Higher $P$ improves approximation ratio.
+
+\begin{exercisebox}[Exercises --- Chapter 8]
+\textbf{8.1.} Load the Teleportation preset. Step through and identify: Bell pair creation, Bell measurement, and correction steps.\\[4pt]
+\textbf{8.2.} Implement 3-qubit Grover for target $\ket{101}$. How many iterations are optimal for $N=8$? Build and verify.\\[4pt]
+\textbf{8.3.} Use the Python API to factor 15 via \texttt{algorithms/shor.py}. Run 20 times. What fraction succeed?\\[4pt]
+\textbf{8.4.} Use VQE to compute H$_2$ ground state energy at bond lengths $0.5, 0.735, 1.0, 1.5, 2.0$~\AA{}. Plot $E$ vs distance. Where is the equilibrium?
+\end{exercisebox}
+
+
+%═══════════════════════════════════════════
+% CHAPTER 9: ERROR CORRECTION
+%═══════════════════════════════════════════
+\chapter{Quantum Error Correction}
+
+\section{Types of Quantum Errors}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Error} & \textbf{Effect} & \textbf{Pauli} & \textbf{Cause} \\
+\midrule
+Bit flip & $\ket{0} \leftrightarrow \ket{1}$ & $X$ & EM interference \\
+Phase flip & $\ket{+} \leftrightarrow \ket{-}$ & $Z$ & Dephasing \\
+Bit + phase & Combined & $Y = iXZ$ & Multiple sources \\
+Depolarizing & Random Pauli & $pI + \frac{1-p}{3}(X+Y+Z)$ & General decoherence \\
+Amplitude damping & Energy decay ($T_1$) & Non-unitary & Spontaneous emission \\
+Dephasing & Phase randomization ($T_2$) & Random $R_z$ & Environmental noise \\
+\bottomrule
+\end{tabular}
+\caption{Common quantum error types.}
+\end{table}
+
+\section{The Bit-Flip Code (3-Qubit Repetition)}
+
+\textbf{Encoding:} 1 logical qubit into 3 physical qubits:
+\begin{equation}
+\ket{0}_L = \ket{000}, \qquad \ket{1}_L = \ket{111}
+\end{equation}
+
+\textbf{Circuit:} $\mathrm{CNOT}(q_0, q_1)$, $\mathrm{CNOT}(q_0, q_2)$ encodes $\alpha\ket{0} + \beta\ket{1} \to \alpha\ket{000} + \beta\ket{111}$.
+
+\textbf{Syndrome extraction:} Measure parity checks $Z_1 Z_2$ and $Z_2 Z_3$:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Error} & \textbf{Syndrome $(Z_1Z_2,\; Z_2Z_3)$} & \textbf{Correction} \\
+\midrule
+None & $(+1, +1)$ & None \\
+Qubit 1 & $(-1, +1)$ & $X$ on qubit 1 \\
+Qubit 2 & $(-1, -1)$ & $X$ on qubit 2 \\
+Qubit 3 & $(+1, -1)$ & $X$ on qubit 3 \\
+\bottomrule
+\end{tabular}
+\caption{Bit-flip code syndrome table.}
+\end{table}
+
+\section{The Phase-Flip Code}
+
+Protects against $Z$ errors using Hadamard basis encoding:
+\begin{equation}
+\ket{0}_L = \ket{+++}, \qquad \ket{1}_L = \ket{---}
+\end{equation}
+Corrects a single $Z$ error using syndrome extraction in the $X$-basis.
+
+\section{The Shor Code (9-Qubit)}
+
+Concatenates bit-flip and phase-flip codes: 1 logical qubit in 9 physical qubits. Corrects \textbf{any} single-qubit error ($X$, $Y$, or $Z$). The first quantum error correcting code (Shor, 1995).
+
+\begin{exercisebox}[Exercises --- Chapter 9]
+\textbf{9.1.} Build the bit-flip code in the Lab: $H(q_0)$ to create $\ket{+}$, then $\mathrm{CX}(q_0,q_1)$, $\mathrm{CX}(q_0,q_2)$. Add $X(q_1)$ as error. Apply correction. Does the result match?\\[4pt]
+\textbf{9.2.} Using the density matrix backend, apply depolarizing noise with $p=0.1$ to $\ket{+}$. What is $\mathrm{Tr}(\rho^2)$ before and after?
+\end{exercisebox}
+
+
+%═══════════════════════════════════════════
+% CHAPTER 10: BB84
+%═══════════════════════════════════════════
+\chapter{Cryptography: BB84 Quantum Key Distribution}
+
+\section{The BB84 Protocol}
+
+BB84 (Bennett--Brassard, 1984) generates a shared secret key whose security is guaranteed by quantum mechanics.
+
+\textbf{Protocol:}
+\begin{enumerate}[nosep]
+  \item \textbf{Alice} generates random bits and random bases ($Z$ or $X$). She encodes: $Z$-basis uses $\ket{0}/\ket{1}$, $X$-basis uses $\ket{+}/\ket{-}$.
+  \item \textbf{Alice sends} qubits to Bob over a quantum channel.
+  \item \textbf{Bob} measures each qubit in a randomly chosen basis.
+  \item \textbf{Basis reconciliation:} Publicly compare bases (not bits). Keep bits where bases matched ($\sim$50\%).
+  \item \textbf{Eavesdropping check:} Sacrifice some bits to estimate error rate. If $>$11\%, abort.
+  \item \textbf{Privacy amplification:} Hash remaining bits to get the final key.
+\end{enumerate}
+
+\section{Security Guarantee}
+
+An eavesdropper (Eve) who intercepts and re-sends qubits inevitably introduces errors: she doesn't know Alice's bases, and measuring in the wrong basis disturbs the state (no-cloning theorem prevents perfect copying). This disturbance is detectable in step~5.
+
+Expected error rate under intercept-resend attack: 25\% on matching-basis bits (Eve guesses wrong basis 50\% of the time, causing 50\% error when she does).
+
+\begin{exercisebox}[Exercises --- Chapter 10]
+\textbf{10.1.} Simulate BB84 by hand for 8 qubits. Alice's bits: 10110100, bases: ZXZXZZXZ. Bob's bases: ZZZXXZXZ. Which bits survive?\\[4pt]
+\textbf{10.2.} If Eve intercepts all qubits with random bases, what is the expected error rate on surviving bits?
+\end{exercisebox}
+
+
+%═══════════════════════════════════════════
+% CHAPTER 11: PROBLEM SETS
+%═══════════════════════════════════════════
+\chapter{Exercises and Problem Sets}
+
+These integrative exercises combine concepts from multiple chapters. Each set is designed for 30--60 minutes.
+
+\section{Problem Set A: Building Intuition (Beginner)}
+
+\begin{exercisebox}[Problem Set A]
+\textbf{A.1.} \textbf{Gate Explorer:} Apply each single-qubit gate ($H, X, Y, Z, S, T, \sqrt{X}$) to $\ket{0}$. Record $P(0)$, $P(1)$, Bloch coordinates, and $\ket{1}$ amplitude. Which gates create superposition? Which only change phase?\\[4pt]
+\textbf{A.2.} \textbf{Rotation Sweep:} Apply $R_y(\theta)\ket{0}$ for $\theta = 0, \pi/6, \pi/4, \pi/3, \pi/2, 2\pi/3, \pi$. Plot $P(\ket{1})$ vs $\theta$. Derive that $P(\ket{1}) = \sin^2(\theta/2)$.\\[4pt]
+\textbf{A.3.} \textbf{Interference Demo:} Build $H$, $P(\theta)$, $H$ for various $\theta$. Show $P(\ket{0}) = \cos^2(\theta/2)$. What $\theta$ gives $P(\ket{0}) = 0$?
+\end{exercisebox}
+
+\section{Problem Set B: Entanglement (Intermediate)}
+
+\begin{exercisebox}[Problem Set B]
+\textbf{B.1.} \textbf{Bell State Tomography:} For $\ket{\Phi^+}$, measure in ZZ, XX, and YY bases. Record correlations $\ev{ZZ}$, $\ev{XX}$, $\ev{YY}$.\\[4pt]
+\textbf{B.2.} \textbf{Entanglement Swapping:} Create $\ket{\Phi^+}$ on $(q_0, q_1)$ and $(q_2, q_3)$. Bell-measure $(q_1, q_2)$. What state are $q_0, q_3$ in? They never interacted!\\[4pt]
+\textbf{B.3.} \textbf{Monogamy:} Try to maximally entangle $q_0$ with both $q_1$ and $q_2$. Show it's impossible.
+\end{exercisebox}
+
+\section{Problem Set C: Algorithms (Advanced)}
+
+\begin{exercisebox}[Problem Set C]
+\textbf{C.1.} \textbf{3-Qubit Grover:} Search for $\ket{101}$ in $N=8$. Design oracle and diffusion. Compute optimal iteration count.\\[4pt]
+\textbf{C.2.} \textbf{Phase Estimation:} Estimate the eigenvalue of $T$ ($e^{i\pi/4}$) using 3 counting qubits. What precision?\\[4pt]
+\textbf{C.3.} \textbf{VQE Surface:} Run VQE for H$_2$ at 6 bond lengths. Plot the potential energy curve.
+\end{exercisebox}
+
+\section{Problem Set D: Build Your Own (Expert)}
+
+\begin{exercisebox}[Problem Set D]
+\textbf{D.1.} \textbf{Superdense Coding:} Send 2 classical bits using 1 qubit. Verify all 4 messages.\\[4pt]
+\textbf{D.2.} \textbf{Quantum Walk:} 1D walk with coin qubit ($H$), 2-qubit position register. Run 4 steps. Compare to classical.\\[4pt]
+\textbf{D.3.} \textbf{Error Threshold:} Encode with 3-qubit bit-flip code. Vary depolarizing $p$. At what $p$ does encoded perform worse than unencoded?
+\end{exercisebox}
+
+
+%═══════════════════════════════════════════
+% APPENDIX A: QASM REFERENCE
+%═══════════════════════════════════════════
+\appendix
+\chapter{OpenQASM 2.0 Reference}
+
+\section{Syntax}
+
+\begin{lstlisting}[style=qasm]
+OPENQASM 2.0;              // Required version header
+include "qelib1.inc";      // Standard gate library
+qreg q[3];                 // 3-qubit quantum register
+creg c[3];                 // 3-bit classical register
+h q[0];                    // Hadamard on qubit 0
+cx q[0], q[1];             // CNOT
+rx(pi/4) q[2];             // Parameterized rotation
+measure q -> c;            // Measure all qubits
+\end{lstlisting}
+
+\section{Gate Mapping}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}llcc@{}}
+\toprule
+\textbf{QASM} & \textbf{tiny-qpu} & \textbf{Parameters} & \textbf{Qubits} \\
+\midrule
+\texttt{h} & $H$ & None & 1 \\
+\texttt{x / y / z} & $X / Y / Z$ & None & 1 \\
+\texttt{s / sdg} & $S / S^\dagger$ & None & 1 \\
+\texttt{t / tdg} & $T / T^\dagger$ & None & 1 \\
+\texttt{rx / ry / rz} & $R_x / R_y / R_z$ & Angle (rad) & 1 \\
+\texttt{cx} & CNOT & None & 2 \\
+\texttt{cz} & CZ & None & 2 \\
+\texttt{swap} & SWAP & None & 2 \\
+\texttt{ccx} & Toffoli & None & 3 \\
+\texttt{cswap} & Fredkin & None & 3 \\
+\bottomrule
+\end{tabular}
+\caption{QASM to tiny-qpu gate mapping.}
+\end{table}
+
+\section{Examples}
+
+\textbf{Bell State:}
+\begin{lstlisting}[style=qasm]
+OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+h q[0];
+cx q[0], q[1];
+\end{lstlisting}
+
+\textbf{3-Qubit QFT:}
+\begin{lstlisting}[style=qasm]
+OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[3];
+h q[0];
+crz(pi/2) q[1], q[0];
+crz(pi/4) q[2], q[0];
+h q[1];
+crz(pi/2) q[2], q[1];
+h q[2];
+swap q[0], q[2];
+\end{lstlisting}
+
+
+%═══════════════════════════════════════════
+% APPENDIX B: SHORTCUTS & TROUBLESHOOTING
+%═══════════════════════════════════════════
+\chapter{Keyboard Shortcuts \& Troubleshooting}
+
+\section{Keyboard Shortcuts}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Key} & \textbf{Action} & \textbf{Context} \\
+\midrule
+R & Run simulation & Any \\
+S & Enter step mode & Any \\
+C & Clear circuit & Any \\
+Ctrl+Z & Undo last gate & Any \\
+H & Select Hadamard & Not in text field \\
+X / Y & Select Pauli-X / Y & Not in text field \\
+M & Select Measure & Not in text field \\
+$\rightarrow$ / $\leftarrow$ & Next / previous step & Step mode \\
+Escape & Exit step mode & Step mode \\
+Enter & Confirm parameter & Dialog \\
+? & Open help & Any \\
+\bottomrule
+\end{tabular}
+\caption{Keyboard shortcuts.}
+\end{table}
+
+\section{Troubleshooting}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}p{3.5cm}p{3.5cm}p{6cm}@{}}
+\toprule
+\textbf{Problem} & \textbf{Cause} & \textbf{Solution} \\
+\midrule
+App won't launch & Missing pywebview & \texttt{pip install pywebview} \\
+ModuleNotFoundError & Missing Flask & \texttt{pip install flask} \\
+No window appears & WebView2 issue & Use \texttt{-{}-browser} flag \\
+Simulation error & Invalid qubit index & Check gate targets fit qubit count \\
+Bloch sphere empty & No simulation run & Click Run or press R \\
+QASM import fails & Bad format & Must start with \texttt{OPENQASM 2.0;} \\
+Port 8888 busy & Another process & Use \texttt{-{}-port 9000} \\
+Exe blocked & Windows Defender & Allow through firewall \\
+\bottomrule
+\end{tabular}
+\caption{Common issues and solutions.}
+\end{table}
+
+\vfill
+\begin{center}
+\rule{0.6\textwidth}{0.4pt}\\[1em]
+\textbf{tiny-qpu} --- Technical Manual \& Quantum Computing Primer\\
+Version 2.0 --- February 2026\\
+\texttt{github.com/SKBiswas1998/tiny-qpu}
+\end{center}
+
+\end{document}
