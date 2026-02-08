@@ -255,6 +255,70 @@ Ground state energy calculations using VQE:
 
 ---
 
+---
+
+## Quantum Chemistry Module
+
+The `tiny_qpu.chemistry` module provides a complete pipeline from molecular geometry to qubit Hamiltonian via the **Jordan-Wigner transformation**, enabling variational quantum eigensolver (VQE) simulations of real molecules.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Jordan-Wigner Transform** | Fermion-to-qubit mapping via Pauli algebra with full anticommutation verification |
+| **Molecular Integrals** | PySCF Hartree-Fock → MO integrals with spatial-to-spin-orbital conversion |
+| **Active Space Reduction** | Frozen-core approximation for larger molecules (e.g., LiH CASCI(2,2)) |
+| **VQE Integration** | Hardware-efficient ansatz with L-BFGS-B optimization on molecular Hamiltonians |
+| **Cross-Platform Tests** | 40 tests pass on Windows (no PySCF), 43 tests with PySCF on Linux |
+
+### Quick Start
+
+```python
+from tiny_qpu.chemistry.molecular import Molecule
+from tiny_qpu.chemistry.transforms import jordan_wigner
+
+# Define a molecule (requires PySCF)
+mol = Molecule(atoms=[('H', (0, 0, 0)), ('H', (0, 0, 0.74))], basis='sto-3g')
+mol.run_scf()
+
+# Get qubit Hamiltonian via Jordan-Wigner
+H_qubit = jordan_wigner(mol.hamiltonian())
+
+# H_qubit is a dict of {pauli_string: coefficient}
+# e.g., {'IIZI': -0.223, 'ZIZI': 0.121, 'XXYY': -0.045, ...}
+```
+
+### Validation Results
+
+| Molecule | Method | Energy (Ha) | Error vs FCI |
+|----------|--------|-------------|--------------|
+| H₂ (0.74 Å) | Jordan-Wigner | −1.137284 | < 10⁻⁶ |
+| H₂ (55 points) | JW vs FCI | — | All match |
+| LiH (1.5 Å) | JW CASCI(2,2) | −7.882362 | < 10⁻⁶ |
+
+### Interactive Results Dashboard
+
+An interactive React dashboard visualizing all chemistry results is available at [`visualizations/chemistry_results.jsx`](visualizations/chemistry_results.jsx). The dashboard includes six visualization tabs:
+
+1. **H₂ Bond Dissociation Curve** — HF, FCI, and JW potential energy surfaces (55 points, 0.3–3.0 Å)
+2. **LiH Bond Curve** — Full-space FCI vs HF showing multi-reference character
+3. **VQE Convergence** — Energy vs optimization step with HF/FCI reference lines
+4. **Energy Spectrum** — All 16 eigenvalues of the 4-qubit H₂ Hamiltonian
+5. **Pauli Decomposition** — 15 non-zero terms classified as classical (ZZ), field (Z), or entangling (XY)
+6. **Summary** — Complete feature overview with key validation numbers
+
+> **Tip:** Open the `.jsx` file in any React environment (e.g., Vite, Next.js, or Claude Artifacts) to render the interactive charts.
+
+### Key Numbers
+
+```
+H₂ FCI Energy:      −1.137284 Ha at r = 0.74 Å (STO-3G)
+H₂ Correlation:     −20.5 mHa at equilibrium, −277.6 mHa at 3.0 Å
+LiH FCI Energy:     −7.882362 Ha at r = 1.5 Å (STO-3G)
+Qubit Hamiltonian:   15 Pauli terms, 4 qubits (H₂)
+JW Accuracy:         Exact match to FCI (error < 10⁻⁶ Ha)
+```
+
 ## Project Structure
 
 ```
@@ -289,6 +353,8 @@ tiny-qpu/
 │   ├── installer_sidebar.bmp      # Inno Setup wizard image
 │   └── installer_small.bmp        # Inno Setup header image
 ├── docs/images/                    # Visualization outputs
+├── visualizations/
+│   └── chemistry_results.jsx  # Interactive results dashboard
 ├── tests/                          # 386 tests
 │   ├── test_dashboard.py          # 33 dashboard API tests
 │   └── ...                        # Core simulator tests
