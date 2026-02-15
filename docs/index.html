@@ -1,103 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>tiny-qpu · Interactive Demos</title>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>tiny-qpu Demos</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&display=swap');
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    min-height: 100vh;
-    background: linear-gradient(170deg, #0a0a1a 0%, #0d1117 40%, #0a0f1e 100%);
-    color: #e0e0e0;
-    font-family: 'IBM Plex Mono', 'Fira Code', monospace;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 60px 20px;
-  }
-  h1 {
-    font-size: 42px;
-    font-weight: 700;
-    background: linear-gradient(135deg, #2ecc71 0%, #3498db 50%, #9b59b6 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 8px;
-  }
-  .subtitle { color: #6a7a9a; font-size: 14px; margin-bottom: 48px; text-align: center; line-height: 1.6; }
-  .demos { display: grid; gap: 16px; width: 100%; max-width: 700px; }
-  a.demo-card {
-    display: block;
-    padding: 24px 28px;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid #2a2a4a;
-    border-radius: 12px;
-    text-decoration: none;
-    transition: all 0.25s;
-  }
-  a.demo-card:hover {
-    background: rgba(46,204,113,0.06);
-    border-color: #2ecc71;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(46,204,113,0.1);
-  }
-  .demo-title { font-size: 18px; font-weight: 600; color: #2ecc71; margin-bottom: 6px; }
-  .demo-desc { font-size: 12px; color: #8a9aba; line-height: 1.6; }
-  .demo-tags { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
-  .tag {
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 10px;
-    font-weight: 500;
-  }
-  .tag-green { background: rgba(46,204,113,0.15); color: #2ecc71; border: 1px solid #2ecc7133; }
-  .tag-blue { background: rgba(52,152,219,0.15); color: #3498db; border: 1px solid #3498db33; }
-  .tag-purple { background: rgba(155,89,182,0.15); color: #9b59b6; border: 1px solid #9b59b633; }
-  .tag-red { background: rgba(231,76,60,0.15); color: #e74c3c; border: 1px solid #e74c3c33; }
-  .footer { margin-top: 48px; color: #444; font-size: 11px; text-align: center; }
-  .footer a { color: #6a7a9a; }
-</style>
-</head>
-<body>
-  <h1>tiny-qpu</h1>
-  <div class="subtitle">
-    A lightweight quantum processing unit simulator for research and education.<br>
-    Pure Python · Zero heavy dependencies · 400+ tests
-  </div>
-
-  <div class="demos">
-    <a class="demo-card" href="stabilizer_demo.html">
-      <div class="demo-title">⚛ Stabilizer Simulator</div>
-      <div class="demo-desc">
-        Interactive CHP algorithm simulator. Build Clifford circuits gate-by-gate,
-        watch the stabilizer tableau evolve in real time, run quantum teleportation,
-        error correction, and 1000+ qubit GHZ states.
-      </div>
-      <div class="demo-tags">
-        <span class="tag tag-green">1000+ qubits</span>
-        <span class="tag tag-blue">CHP Algorithm</span>
-        <span class="tag tag-purple">QEC Demo</span>
-        <span class="tag tag-red">Teleportation</span>
-      </div>
-    </a>
-
-    <a class="demo-card" href="chemistry_dashboard.html" style="opacity:0.5;pointer-events:none">
-      <div class="demo-title">🧪 Chemistry Dashboard</div>
-      <div class="demo-desc">
-        Molecular simulation results for H₂, HeH⁺, LiH, and H₄. VQE optimization
-        trajectories and bond-length energy curves with real quantum chemistry data.
-      </div>
-      <div class="demo-tags">
-        <span class="tag tag-green">VQE</span>
-        <span class="tag tag-blue">4 Molecules</span>
-        <span class="tag tag-purple">Coming Soon</span>
-      </div>
-    </a>
-  </div>
-
-  <div class="footer">
-    <a href="https://github.com/SKBiswas1998/tiny-qpu">github.com/SKBiswas1998/tiny-qpu</a>
-  </div>
-</body>
-</html>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;background:linear-gradient(170deg,#0a0a1a,#0d1117 40%,#0a0f1e);
+color:#e0e0e0;font-family:monospace;display:flex;flex-direction:column;align-items:center;padding:60px 20px}
+h1{font-size:42px;background:linear-gradient(135deg,#2ecc71,#3498db 50%,#9b59b6);
+-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+.sub{color:#6a7a9a;font-size:14px;margin-bottom:48px;text-align:center;line-height:1.6}
+a.card{display:block;padding:24px 28px;background:rgba(255,255,255,0.02);border:1px solid #2a2a4a;
+border-radius:12px;text-decoration:none;transition:all 0.25s;max-width:700px;width:100%}
+a.card:hover{background:rgba(46,204,113,0.06);border-color:#2ecc71;transform:translateY(-2px);
+box-shadow:0 8px 30px rgba(46,204,113,0.1)}
+.t{font-size:18px;font-weight:600;color:#2ecc71;margin-bottom:6px}
+.d{font-size:12px;color:#8a9aba;line-height:1.6}
+.f{margin-top:48px;color:#444;font-size:11px}
+.f a{color:#6a7a9a}
+</style></head><body>
+<h1>tiny-qpu</h1>
+<div class="sub">A lightweight quantum processing unit simulator for research and education.<br>
+Pure Python. Zero heavy dependencies. 400+ tests.</div>
+<a class="card" href="stabilizer_demo.html">
+<div class="t">Stabilizer Simulator</div>
+<div class="d">Interactive CHP algorithm simulator. Build Clifford circuits gate-by-gate,
+watch the stabilizer tableau evolve in real time, run quantum teleportation,
+error correction, and 1000+ qubit GHZ states.</div></a>
+<div class="f"><a href="https://github.com/SKBiswas1998/tiny-qpu">github.com/SKBiswas1998/tiny-qpu</a></div>
+</body></html>
