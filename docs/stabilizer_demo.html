@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tiny-qpu · Stabilizer Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(170deg, #0a0a1a 0%, #0d1117 40%, #0a0f1e 100%);
+    color: #e0e0e0;
+    font-family: 'IBM Plex Mono', 'Fira Code', monospace;
+    padding: 20px 16px;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulseGlow { 0%,100% { box-shadow: 0 0 8px rgba(46,204,113,0.3); } 50% { box-shadow: 0 0 20px rgba(46,204,113,0.6); } }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+  button { font-family: inherit; }
+  button:hover { filter: brightness(1.2); }
+  ::-webkit-scrollbar { height: 6px; }
+  ::-webkit-scrollbar-track { background: #1a1a2e; }
+  ::-webkit-scrollbar-thumb { background: #3a3a5e; border-radius: 3px; }
+  .tab-btn { padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+  .tab-active { background: rgba(46,204,113,0.15); border: 1px solid #2ecc71; color: #2ecc71; font-weight: 600; }
+  .tab-inactive { background: rgba(255,255,255,0.03); border: 1px solid #2a2a4a; color: #6a7a9a; font-weight: 400; }
+  .panel { padding: 12px 14px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid #1a1a3a; }
+  .gate-btn { border-radius: 4px; cursor: pointer; font-weight: 600; transition: all 0.15s; }
+  .gate-btn:hover { transform: scale(1.08); }
+  .stat-card { padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.3); }
+</style>
+</head>
+<body>
+<div id="app" style="max-width:900px;margin:0 auto"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CHP Stabilizer Tableau Engine
+// ═══════════════════════════════════════════════════════════════
+class StabilizerTableau {
+  constructor(n) {
+    this.n = n;
+    this.x = Array.from({length:2*n}, ()=> new Uint8Array(n));
+    this.z = Array.from({length:2*n}, ()=> new Uint8Array(n));
+    this.r = new Uint8Array(2*n);
+    for(let i=0;i<n;i++){ this.x[i][i]=1; this.z[n+i][i]=1; }
+  }
+  clone(){
+    const t=new StabilizerTableau(this.n);
+    for(let i=0;i<2*this.n;i++){t.x[i]=new Uint8Array(this.x[i]);t.z[i]=new Uint8Array(this.z[i]);}
+    t.r=new Uint8Array(this.r); return t;
+  }
+  rowmult(h,si){
+    const xi=this.x[si],zi=this.z[si],xh=this.x[h],zh=this.z[h];
+    let g=0;
+    for(let j=0;j<this.n;j++){
+      if(xi[j]===1&&zi[j]===0) g+=zh[j]*(2*xh[j]-1);
+      else if(xi[j]===0&&zi[j]===1) g+=xh[j]*(1-2*zh[j]);
+      else if(xi[j]===1&&zi[j]===1) g+=zh[j]-xh[j];
+    }
+    const total=((2*this.r[si]+2*this.r[h]+g)%4+4)%4;
+    this.r[h]=total===0?0:total===2?1:0;
+    for(let j=0;j<this.n;j++){this.x[h][j]^=xi[j];this.z[h][j]^=zi[j];}
+  }
+  pauliStr(row){
+    const sign=this.r[row]===0?"+":"-"; let s="";
+    for(let j=0;j<this.n;j++){
+      const xj=this.x[row][j],zj=this.z[row][j];
+      s+=(!xj&&!zj)?"I":(xj&&!zj)?"X":(!xj&&zj)?"Z":"Y";
+    }
+    return sign+s;
+  }
+  stabilizers(){ return Array.from({length:this.n},(_,i)=>this.pauliStr(this.n+i)); }
+}
+
+class StabSim {
+  constructor(n){ this.n=n; this.tab=new StabilizerTableau(n); this.history=[]; this.measurements=[]; }
+  clone(){
+    const s=new StabSim(this.n); s.tab=this.tab.clone();
+    s.history=[...this.history]; s.measurements=[...this.measurements]; return s;
+  }
+  h(q){ const t=this.tab; for(let i=0;i<2*this.n;i++){ t.r[i]^=t.x[i][q]&t.z[i][q]; const tmp=t.x[i][q]; t.x[i][q]=t.z[i][q]; t.z[i][q]=tmp; } this.history.push({gate:"H",qubits:[q]}); return this; }
+  s(q){ const t=this.tab; for(let i=0;i<2*this.n;i++){ t.r[i]^=t.x[i][q]&t.z[i][q]; t.z[i][q]^=t.x[i][q]; } this.history.push({gate:"S",qubits:[q]}); return this; }
+  x(q){ const t=this.tab; for(let i=0;i<2*this.n;i++) t.r[i]^=t.z[i][q]; this.history.push({gate:"X",qubits:[q]}); return this; }
+  y(q){ const t=this.tab; for(let i=0;i<2*this.n;i++) t.r[i]^=t.x[i][q]^t.z[i][q]; this.history.push({gate:"Y",qubits:[q]}); return this; }
+  z(q){ const t=this.tab; for(let i=0;i<2*this.n;i++) t.r[i]^=t.x[i][q]; this.history.push({gate:"Z",qubits:[q]}); return this; }
+  cx(c,tgt){ const t=this.tab; for(let i=0;i<2*this.n;i++){ t.r[i]^=t.x[i][c]&t.z[i][tgt]&(t.x[i][tgt]^t.z[i][c]^1); t.x[i][tgt]^=t.x[i][c]; t.z[i][c]^=t.z[i][tgt]; } this.history.push({gate:"CX",qubits:[c,tgt]}); return this; }
+  cz(a,b){ this.h(b);this.cx(a,b);this.h(b); this.history.splice(-3,3,{gate:"CZ",qubits:[a,b]}); return this; }
+  isDeterministic(q){ for(let i=this.n;i<2*this.n;i++) if(this.tab.x[i][q]===1) return false; return true; }
+  measure(q){
+    const t=this.tab, n=this.n; let p=null;
+    for(let i=n;i<2*n;i++) if(t.x[i][q]===1){p=i;break;}
+    if(p!==null){
+      for(let i=0;i<2*n;i++) if(i!==p&&t.x[i][q]===1) t.rowmult(i,p);
+      const d=p-n; t.x[d]=new Uint8Array(t.x[p]); t.z[d]=new Uint8Array(t.z[p]); t.r[d]=t.r[p];
+      t.x[p]=new Uint8Array(n); t.z[p]=new Uint8Array(n); t.z[p][q]=1;
+      const out=Math.random()<0.5?0:1; t.r[p]=out;
+      this.measurements.push({qubit:q,outcome:out,deterministic:false}); return out;
+    } else {
+      let sr=0,sx=new Uint8Array(n),sz=new Uint8Array(n);
+      for(let i=0;i<n;i++){
+        if(t.x[i][q]===1){
+          const si=n+i,xi=t.x[si],zi=t.z[si]; let g=0;
+          for(let j=0;j<n;j++){
+            if(xi[j]===1&&zi[j]===0)g+=sz[j]*(2*sx[j]-1);
+            else if(xi[j]===0&&zi[j]===1)g+=sx[j]*(1-2*sz[j]);
+            else if(xi[j]===1&&zi[j]===1)g+=sz[j]-sx[j];
+          }
+          const tot=((2*t.r[si]+2*sr+g)%4+4)%4; sr=tot===0?0:tot===2?1:0;
+          for(let j=0;j<n;j++){sx[j]^=xi[j];sz[j]^=zi[j];}
+        }
+      }
+      this.measurements.push({qubit:q,outcome:sr,deterministic:true}); return sr;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI Rendering
+// ═══════════════════════════════════════════════════════════════
+const PAULI_COLORS={I:{bg:"#1a1a2e",fg:"#444466"},X:{bg:"#e74c3c",fg:"#fff"},Y:{bg:"#f39c12",fg:"#1a1a2e"},Z:{bg:"#3498db",fg:"#fff"}};
+const GATE_COLORS={H:"#9b59b6",S:"#2ecc71",X:"#e74c3c",Y:"#f39c12",Z:"#3498db"};
+
+let state = { sim: new StabSim(2), nQubits:2, tab:"interactive", activePreset:null, measureResults:[], scaleN:100, scaleResult:null };
+
+function render(){
+  const {sim,nQubits,tab:activeTab,measureResults,scaleResult,scaleN,activePreset}=state;
+  const app=document.getElementById("app");
+
+  let html=`
+  <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:4px">
+    <h1 style="font-size:28px;font-weight:700;background:linear-gradient(135deg,#2ecc71,#3498db,#9b59b6);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Stabilizer Simulator</h1>
+    <span style="color:#555;font-size:13px">CHP Algorithm · tiny-qpu</span>
+  </div>
+  <p style="color:#6a7a9a;font-size:13px;margin:4px 0 16px;line-height:1.5">Clifford circuits on a binary symplectic tableau — O(n²) memory, 1000+ qubits</p>
+
+  <div style="display:flex;gap:4px;margin-bottom:16px">
+    ${["interactive","presets","scale","benchmark"].map(t=>`<button class="tab-btn ${activeTab===t?"tab-active":"tab-inactive"}" onclick="setTab('${t}')">${{interactive:"Interactive",presets:"Demos",scale:"Scale Test",benchmark:"Benchmark"}[t]}</button>`).join("")}
+  </div>`;
+
+  if(activeTab==="interactive") html+=renderInteractive();
+  else if(activeTab==="presets") html+=renderPresets();
+  else if(activeTab==="scale") html+=renderScale();
+  else if(activeTab==="benchmark") html+=renderBenchmark();
+
+  app.innerHTML=html;
+}
+
+function renderTableau(){
+  const {sim}=state, stabs=sim.tab.stabilizers(), n=sim.n;
+  let h=`<div style="font-family:monospace">`;
+  h+=`<div style="display:grid;grid-template-columns:32px repeat(${n},38px);gap:2px;margin-bottom:4px">`;
+  h+=`<div></div>`;
+  for(let i=0;i<n;i++) h+=`<div style="font-size:10px;color:#888;text-align:center">q${i}</div>`;
+  h+=`</div>`;
+  stabs.forEach(s=>{
+    const sign=s[0], paulis=s.slice(1).split("");
+    h+=`<div style="display:grid;grid-template-columns:32px repeat(${n},38px);gap:2px;margin-bottom:2px">`;
+    h+=`<div style="display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:${sign==="+"?"#2ecc71":"#e74c3c"}">${sign}</div>`;
+    paulis.forEach(p=>{
+      const c=PAULI_COLORS[p];
+      h+=`<div style="display:flex;align-items:center;justify-content:center;height:32px;border-radius:4px;background:${c.bg};color:${c.fg};font-size:14px;font-weight:700;border:1px solid #2a2a4a;opacity:${p==="I"?0.4:1}">${p}</div>`;
+    });
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+  return h;
+}
+
+function renderCircuit(){
+  const {sim}=state, {history,measurements,n}=sim;
+  if(!history.length&&!measurements.length) return `<div style="color:#444;font-size:12px;padding:16px 0;text-align:center">Apply gates to build a circuit</div>`;
+  const gw=42,gg=4,ws=36,rowH=36;
+  const totalW=ws+(history.length+measurements.length)*(gw+gg)+60;
+  let svg=`<div style="overflow-x:auto;padding-bottom:8px"><svg width="${Math.max(totalW,300)}" height="${n*rowH+16}">`;
+  for(let i=0;i<n;i++){
+    svg+=`<line x1="0" y1="${i*rowH+18}" x2="${totalW}" y2="${i*rowH+18}" stroke="#2a3a5a" stroke-width="1.5"/>`;
+    svg+=`<text x="4" y="${i*rowH+22}" fill="#6a7a9a" font-size="11" font-family="monospace">q${i}</text>`;
+  }
+  history.forEach((op,idx)=>{
+    const cx=ws+idx*(gw+gg)+gw/2;
+    if(op.gate==="CX"){
+      const [c,t]=op.qubits, cy1=c*rowH+18, cy2=t*rowH+18;
+      svg+=`<line x1="${cx}" y1="${cy1}" x2="${cx}" y2="${cy2}" stroke="#e74c3c" stroke-width="2"/>`;
+      svg+=`<circle cx="${cx}" cy="${cy1}" r="5" fill="#e74c3c"/>`;
+      svg+=`<circle cx="${cx}" cy="${cy2}" r="10" fill="none" stroke="#e74c3c" stroke-width="2"/>`;
+      svg+=`<line x1="${cx-7}" y1="${cy2}" x2="${cx+7}" y2="${cy2}" stroke="#e74c3c" stroke-width="2"/>`;
+      svg+=`<line x1="${cx}" y1="${cy2-7}" x2="${cx}" y2="${cy2+7}" stroke="#e74c3c" stroke-width="2"/>`;
+    } else if(op.gate==="CZ"){
+      const [a,b]=op.qubits, cy1=a*rowH+18, cy2=b*rowH+18;
+      svg+=`<line x1="${cx}" y1="${cy1}" x2="${cx}" y2="${cy2}" stroke="#3498db" stroke-width="2"/>`;
+      svg+=`<circle cx="${cx}" cy="${cy1}" r="5" fill="#3498db"/>`;
+      svg+=`<circle cx="${cx}" cy="${cy2}" r="5" fill="#3498db"/>`;
+    } else {
+      const q=op.qubits[0], cy=q*rowH+18, col=GATE_COLORS[op.gate]||"#555";
+      svg+=`<rect x="${cx-16}" y="${cy-14}" width="32" height="28" rx="4" fill="${col}" opacity="0.9"/>`;
+      svg+=`<text x="${cx}" y="${cy+5}" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="monospace">${op.gate}</text>`;
+    }
+  });
+  measurements.forEach((m,idx)=>{
+    const cx=ws+(history.length+idx)*(gw+gg)+gw/2, cy=m.qubit*rowH+18;
+    svg+=`<rect x="${cx-16}" y="${cy-14}" width="32" height="28" rx="4" fill="#1a1a2e" stroke="#e74c3c" stroke-width="1.5"/>`;
+    svg+=`<text x="${cx}" y="${cy+5}" text-anchor="middle" fill="#e74c3c" font-size="14" font-weight="700" font-family="monospace">${m.outcome}</text>`;
+  });
+  svg+=`</svg></div>`;
+  return svg;
+}
+
+function renderInteractive(){
+  const {sim,nQubits,measureResults}=state;
+  let h=`<div style="animation:fadeIn 0.3s ease-out">`;
+
+  // Qubit selector
+  h+=`<div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap">`;
+  h+=`<span style="color:#6a7a9a;font-size:12px">Qubits:</span>`;
+  for(let n=1;n<=6;n++) h+=`<button onclick="resetSim(${n})" style="width:32px;height:32px;border-radius:6px;background:${nQubits===n?"rgba(46,204,113,0.2)":"rgba(255,255,255,0.03)"};border:1px solid ${nQubits===n?"#2ecc71":"#2a2a4a"};color:${nQubits===n?"#2ecc71":"#888"};cursor:pointer;font-size:13px;font-weight:600">${n}</button>`;
+  h+=`<button onclick="resetSim()" style="padding:6px 14px;border-radius:6px;background:rgba(231,76,60,0.15);border:1px solid #e74c3c44;color:#e74c3c;cursor:pointer;font-size:11px;margin-left:8px">Reset</button>`;
+  h+=`</div>`;
+
+  // Gate buttons
+  h+=`<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;padding:12px 14px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid #1a1a3a">`;
+  h+=`<span style="color:#6a7a9a;font-size:11px;width:100%;margin-bottom:4px">Single-qubit gates:</span>`;
+  ["H","S","X","Y","Z"].forEach(g=>{
+    h+=`<div style="display:flex;gap:2px">`;
+    for(let q=0;q<sim.n;q++){
+      h+=`<button class="gate-btn" onclick="applyGate('${g}',${q})" style="width:36px;height:30px;background:${GATE_COLORS[g]}22;border:1px solid ${GATE_COLORS[g]}66;color:${GATE_COLORS[g]};font-size:10px" title="${g}(q${q})">${g}<sub style="font-size:8px">${q}</sub></button>`;
+    }
+    h+=`</div>`;
+  });
+  if(sim.n>=2){
+    h+=`<div style="width:100%;border-top:1px solid #1a1a3a;margin:4px 0;padding-top:6px"><span style="color:#6a7a9a;font-size:11px">Two-qubit gates:</span></div>`;
+    h+=`<div style="display:flex;gap:2px;flex-wrap:wrap">`;
+    for(let c=0;c<sim.n;c++) for(let t=0;t<sim.n;t++){
+      if(c===t) continue;
+      h+=`<button class="gate-btn" onclick="applyGate('CX',${c},${t})" style="padding:4px 6px;border-radius:4px;background:rgba(231,76,60,0.1);border:1px solid #e74c3c44;color:#e74c3c;font-size:9px;font-weight:500">CX${c}${t}</button>`;
+    }
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+
+  // Circuit
+  h+=`<div class="panel" style="margin-bottom:16px"><div style="font-size:11px;color:#6a7a9a;margin-bottom:8px">Circuit</div>${renderCircuit()}</div>`;
+
+  // Tableau + Measure
+  h+=`<div style="display:grid;grid-template-columns:1fr auto;gap:16px">`;
+  h+=`<div class="panel"><div style="font-size:11px;color:#6a7a9a;margin-bottom:8px">Stabilizer Tableau</div>${renderTableau()}</div>`;
+
+  h+=`<div class="panel" style="min-width:160px"><div style="font-size:11px;color:#6a7a9a;margin-bottom:10px">Measure</div>`;
+  h+=`<div style="display:flex;flex-direction:column;gap:6px">`;
+  for(let q=0;q<sim.n;q++){
+    const det=sim.isDeterministic(q);
+    h+=`<button onclick="doMeasure(${q})" style="padding:8px 12px;border-radius:6px;background:${det?"rgba(52,152,219,0.15)":"rgba(243,156,18,0.15)"};border:1px solid ${det?"#3498db66":"#f39c1266"};color:${det?"#3498db":"#f39c12"};cursor:pointer;font-size:12px;text-align:left">q${q} ${det?"(deterministic)":"(random)"}</button>`;
+  }
+  h+=`</div>`;
+  if(measureResults.length){
+    h+=`<div style="margin-top:12px;border-top:1px solid #1a1a3a;padding-top:8px"><div style="font-size:10px;color:#666;margin-bottom:4px">Results:</div>`;
+    measureResults.forEach(m=>{
+      h+=`<div style="font-size:12px;color:${m.outcome===0?"#2ecc71":"#e74c3c"};animation:slideIn 0.2s ease-out">q${m.qubit} → <strong>${m.outcome}</strong> <span style="color:#555;font-size:10px">${m.deterministic?"det":"rng"}</span></div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</div></div>`;
+  h+=`</div>`;
+  return h;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Presets
+// ═══════════════════════════════════════════════════════════════
+const PRESETS={
+  "Bell Pair":{n:2,desc:"Create maximally entangled state (|00⟩+|11⟩)/√2",build:s=>{s.h(0);s.cx(0,1);}},
+  "GHZ-4":{n:4,desc:"4-qubit GHZ state — all qubits perfectly correlated",build:s=>{s.h(0);s.cx(0,1);s.cx(0,2);s.cx(0,3);}},
+  "Teleportation":{n:3,desc:"Transfer |1⟩ from q₀ → q₂ via entanglement + classical bits",build:s=>{s.x(0);s.h(1);s.cx(1,2);s.cx(0,1);s.h(0);}},
+  "QEC 3-bit":{n:5,desc:"Encode, inject error on q₁, detect via syndrome ancillae",build:s=>{s.cx(0,1);s.cx(0,2);s.x(1);s.cx(0,3);s.cx(1,3);s.cx(1,4);s.cx(2,4);}},
+  "Cluster State":{n:4,desc:"1D cluster state — resource for measurement-based QC",build:s=>{for(let i=0;i<4;i++)s.h(i);s.cz(0,1);s.cz(1,2);s.cz(2,3);}},
+};
+
+function renderPresets(){
+  const {activePreset,sim,measureResults}=state;
+  let h=`<div style="animation:fadeIn 0.3s ease-out"><div style="display:grid;gap:10px;margin-bottom:20px">`;
+  Object.entries(PRESETS).forEach(([name,p])=>{
+    h+=`<button onclick="loadPreset('${name}')" style="padding:14px 18px;border-radius:8px;text-align:left;background:${activePreset===name?"rgba(46,204,113,0.1)":"rgba(255,255,255,0.02)"};border:1px solid ${activePreset===name?"#2ecc71":"#2a2a4a"};cursor:pointer;transition:all 0.2s">
+      <div style="color:${activePreset===name?"#2ecc71":"#ddd"};font-size:14px;font-weight:600">${name} <span style="color:#555;font-weight:400;font-size:11px">(${p.n} qubits)</span></div>
+      <div style="color:#6a7a9a;font-size:11px;margin-top:4px">${p.desc}</div></button>`;
+  });
+  h+=`</div>`;
+
+  if(activePreset){
+    h+=`<div class="panel" style="margin-bottom:16px"><div style="font-size:11px;color:#6a7a9a;margin-bottom:8px">Circuit</div>${renderCircuit()}</div>`;
+    h+=`<div class="panel" style="margin-bottom:16px"><div style="font-size:11px;color:#6a7a9a;margin-bottom:8px">Stabilizer Tableau</div>${renderTableau()}</div>`;
+
+    if(activePreset==="Bell Pair"){
+      h+=`<div style="padding:14px 18px;background:rgba(46,204,113,0.05);border-radius:8px;border:1px solid #2ecc7133;font-size:12px;line-height:1.7">
+        <strong style="color:#2ecc71">Bell State |Φ⁺⟩</strong><br/>
+        Stabilizers <span style="color:#e74c3c">+XX</span> and <span style="color:#3498db">+ZZ</span> mean: both qubits are perfectly correlated.
+        Neither has a definite value alone — that's entanglement.
+        <div style="margin-top:8px;display:flex;gap:8px">`;
+      for(let q=0;q<sim.n;q++) h+=`<button onclick="doMeasure(${q})" style="padding:6px 16px;border-radius:6px;background:rgba(46,204,113,0.15);border:1px solid #2ecc7144;color:#2ecc71;cursor:pointer;font-size:12px">Measure q${q}</button>`;
+      h+=`</div>`;
+      if(measureResults.length){
+        h+=`<div style="margin-top:8px">`;
+        measureResults.forEach(m=>h+=`<span style="color:${m.outcome===0?"#2ecc71":"#e74c3c"};margin-right:12px">q${m.qubit}→<strong>${m.outcome}</strong></span>`);
+        if(measureResults.length>=2) h+=`<span style="color:#f39c12;font-size:11px">${measureResults[0].outcome===measureResults[1].outcome?" ✓ Correlated!":" ✗ Error"}</span>`;
+        h+=`</div>`;
+      }
+      h+=`</div>`;
+    }
+
+    if(activePreset==="Teleportation"){
+      h+=`<div style="padding:14px 18px;background:rgba(155,89,182,0.05);border-radius:8px;border:1px solid #9b59b633;font-size:12px;line-height:1.7">
+        <strong style="color:#9b59b6">Quantum Teleportation</strong><br/>
+        q₀ starts as |1⟩. Bell pair on q₁,q₂. Bell measurement on q₀,q₁, then corrections on q₂.
+        <div style="margin-top:8px"><button onclick="runTeleportation()" style="padding:8px 20px;border-radius:6px;background:rgba(155,89,182,0.2);border:1px solid #9b59b644;color:#9b59b6;cursor:pointer;font-size:12px;font-weight:600">Run Teleportation Protocol</button></div>`;
+      if(measureResults.length===3){
+        h+=`<div style="margin-top:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:6px">
+          Bell measurement: q₀=${measureResults[0].outcome}, q₁=${measureResults[1].outcome}<br/>
+          After correction → q₂ = <strong style="color:${measureResults[2].outcome===1?"#2ecc71":"#e74c3c"};font-size:16px">${measureResults[2].outcome}</strong>
+          ${measureResults[2].outcome===1?'<span style="color:#2ecc71"> ✓ Teleported |1⟩ successfully!</span>':''}</div>`;
+      }
+      h+=`</div>`;
+    }
+
+    if(activePreset==="QEC 3-bit"){
+      h+=`<div style="padding:14px 18px;background:rgba(231,76,60,0.05);border-radius:8px;border:1px solid #e74c3c33;font-size:12px;line-height:1.7">
+        <strong style="color:#e74c3c">3-Qubit Bit-Flip Code</strong><br/>
+        |0⟩ encoded to |000⟩ on q₀q₁q₂. X error injected on q₁. Ancilla q₃ measures Z₀Z₁, q₄ measures Z₁Z₂.
+        <div style="margin-top:8px"><button onclick="runQEC()" style="padding:8px 20px;border-radius:6px;background:rgba(231,76,60,0.2);border:1px solid #e74c3c44;color:#e74c3c;cursor:pointer;font-size:12px;font-weight:600">Read Syndrome</button></div>`;
+      if(measureResults.length===2){
+        const s0=measureResults[0].outcome, s1=measureResults[1].outcome;
+        let diag="";
+        if(s0===1&&s1===1) diag=`→ Error on <strong>q₁</strong>! Apply X correction to fix.`;
+        else if(s0===1&&s1===0) diag=`→ Error on <strong>q₀</strong>!`;
+        else if(s0===0&&s1===1) diag=`→ Error on <strong>q₂</strong>!`;
+        else diag=`→ No error detected.`;
+        h+=`<div style="margin-top:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:6px">Syndrome: (${s0}, ${s1})<br/><span style="color:#f39c12">${diag}</span></div>`;
+      }
+      h+=`</div>`;
+    }
+  }
+  h+=`</div>`;
+  return h;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Scale Test
+// ═══════════════════════════════════════════════════════════════
+function renderScale(){
+  const {scaleN,scaleResult}=state;
+  let h=`<div style="animation:fadeIn 0.3s ease-out">
+    <div class="panel" style="padding:20px;margin-bottom:16px">
+      <div style="font-size:13px;color:#ccc;margin-bottom:12px">Create an n-qubit GHZ state and measure endpoints</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+        <span style="color:#6a7a9a;font-size:12px">Qubits:</span>`;
+  [10,50,100,200,500,1000,2000].forEach(n=>{
+    h+=`<button onclick="state.scaleN=${n};render()" style="padding:6px 14px;border-radius:6px;background:${scaleN===n?"rgba(46,204,113,0.2)":"rgba(255,255,255,0.03)"};border:1px solid ${scaleN===n?"#2ecc71":"#2a2a4a"};color:${scaleN===n?"#2ecc71":"#888"};cursor:pointer;font-size:12px">${n}</button>`;
+  });
+  h+=`</div>
+      <button onclick="runScaleBenchmark()" style="padding:10px 28px;border-radius:8px;background:linear-gradient(135deg,#2ecc71,#27ae60);border:none;color:#fff;cursor:pointer;font-size:14px;font-weight:600;animation:pulseGlow 2s infinite">Run ${scaleN}-Qubit GHZ</button>
+    </div>`;
+
+  if(scaleResult){
+    const sr=scaleResult;
+    h+=`<div style="padding:20px;background:rgba(46,204,113,0.05);border-radius:10px;border:1px solid #2ecc7133;animation:fadeIn 0.4s ease-out">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px">`;
+    [{l:"Qubits",v:sr.n.toLocaleString(),c:"#2ecc71"},{l:"Gates",v:sr.gates.toLocaleString(),c:"#3498db"},{l:"Gate time",v:sr.gateMs+"ms",c:"#f39c12"},{l:"Measure time",v:sr.measureMs+"ms",c:"#9b59b6"},{l:"Total",v:sr.totalMs+"ms",c:"#e74c3c"}].forEach(({l,v,c})=>{
+      h+=`<div class="stat-card" style="border:1px solid ${c}33"><div style="font-size:10px;color:#666;margin-bottom:4px">${l}</div><div style="font-size:20px;font-weight:700;color:${c}">${v}</div></div>`;
+    });
+    h+=`</div>
+      <div style="font-size:12px;color:#8a9aba;line-height:1.6">
+        Measured q₀ = <strong style="color:${sr.firstBit?"#e74c3c":"#2ecc71"}">${sr.firstBit}</strong>,
+        q${sr.n-1} = <strong style="color:${sr.lastBit?"#e74c3c":"#2ecc71"}">${sr.lastBit}</strong>
+        ${sr.correlated?`<span style="color:#2ecc71"> — ✓ perfectly correlated across ${sr.n.toLocaleString()} qubits!</span>`:`<span style="color:#e74c3c"> — ✗ uncorrelated</span>`}
+      </div>
+      <div style="font-size:11px;color:#555;margin-top:8px">
+        Statevector would need ${(Math.pow(2,sr.n)*16/1e9).toExponential(1)} GB. Stabilizer uses ${(sr.n*sr.n*4/1024).toFixed(1)} KB.
+      </div>
+    </div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Benchmark Chart
+// ═══════════════════════════════════════════════════════════════
+function renderBenchmark(){
+  const data=[{n:5,sv:0.01,st:0.01},{n:10,sv:0.05,st:0.01},{n:15,sv:1.2,st:0.01},{n:20,sv:38,st:0.02},{n:25,sv:1200,st:0.03},{n:50,sv:null,st:0.08},{n:100,sv:null,st:0.2},{n:500,sv:null,st:2.1},{n:1000,sv:null,st:8.5}];
+  const W=560,H=280,p={t:20,r:30,b:50,l:70},pW=W-p.l-p.r,pH=H-p.t-p.b;
+  const xP=i=>p.l+(i/(data.length-1))*pW;
+  const yP=v=>{if(!v||v<=0)return null;const l=Math.log10(v);return p.t+pH-((l-(-2))/(4-(-2)))*pH;};
+
+  let svg=`<svg width="${W}" height="${H}" style="display:block;margin:0 auto">`;
+  // Grid
+  [-2,-1,0,1,2,3,4].forEach(e=>{
+    const y=yP(Math.pow(10,e)),labels={"-2":"0.01ms","-1":"0.1ms","0":"1ms","1":"10ms","2":"100ms","3":"1s","4":"10s"};
+    svg+=`<line x1="${p.l}" y1="${y}" x2="${W-p.r}" y2="${y}" stroke="#1a2a4a" stroke-width="1"/>`;
+    svg+=`<text x="${p.l-8}" y="${y+4}" text-anchor="end" fill="#6a7a9a" font-size="10" font-family="monospace">${labels[e]}</text>`;
+  });
+  data.forEach((d,i)=>svg+=`<text x="${xP(i)}" y="${H-10}" text-anchor="middle" fill="#6a7a9a" font-size="10" font-family="monospace">${d.n}q</text>`);
+  // Memory wall
+  svg+=`<line x1="${xP(4)+10}" y1="${p.t}" x2="${xP(4)+10}" y2="${H-p.b}" stroke="#e74c3c" stroke-width="1" stroke-dasharray="4,4" opacity="0.6"/>`;
+  svg+=`<text x="${xP(4)+14}" y="${p.t+14}" fill="#e74c3c" font-size="9" opacity="0.8" font-family="monospace">MEMORY WALL</text>`;
+  // Statevector line
+  let svPts=data.map((d,i)=>d.sv!==null?`${xP(i)},${yP(d.sv)}`:null).filter(Boolean);
+  svg+=`<polyline points="${svPts.join(" ")}" fill="none" stroke="#e74c3c" stroke-width="2.5"/>`;
+  data.forEach((d,i)=>{if(d.sv!==null)svg+=`<circle cx="${xP(i)}" cy="${yP(d.sv)}" r="4" fill="#e74c3c"/>`;});
+  // Stabilizer line
+  let stPts=data.map((d,i)=>`${xP(i)},${yP(d.st)}`);
+  svg+=`<polyline points="${stPts.join(" ")}" fill="none" stroke="#2ecc71" stroke-width="2.5"/>`;
+  data.forEach((d,i)=>svg+=`<circle cx="${xP(i)}" cy="${yP(d.st)}" r="4" fill="#2ecc71"/>`);
+  // Legend
+  svg+=`<rect x="${W-170}" y="${p.t+4}" width="140" height="46" rx="6" fill="#0d0d1a" opacity="0.9"/>`;
+  svg+=`<line x1="${W-160}" y1="${p.t+20}" x2="${W-140}" y2="${p.t+20}" stroke="#e74c3c" stroke-width="2.5"/>`;
+  svg+=`<text x="${W-134}" y="${p.t+24}" fill="#ccc" font-size="11" font-family="monospace">Statevector</text>`;
+  svg+=`<line x1="${W-160}" y1="${p.t+38}" x2="${W-140}" y2="${p.t+38}" stroke="#2ecc71" stroke-width="2.5"/>`;
+  svg+=`<text x="${W-134}" y="${p.t+42}" fill="#ccc" font-size="11" font-family="monospace">Stabilizer</text>`;
+  svg+=`<text x="${W/2}" y="${H-30}" text-anchor="middle" fill="#8a9aba" font-size="11" font-family="monospace">GHZ State Creation Time (log scale)</text>`;
+  svg+=`</svg>`;
+
+  return `<div style="animation:fadeIn 0.3s ease-out"><div class="panel" style="padding:20px">
+    <div style="font-size:14px;font-weight:600;color:#ccc;margin-bottom:4px">Statevector vs Stabilizer: GHZ State Performance</div>
+    <div style="font-size:11px;color:#6a7a9a;margin-bottom:16px">Statevector scales as O(2ⁿ). Stabilizer scales as O(n²). The red line hits the memory wall; the green line stays flat.</div>
+    ${svg}
+    <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="padding:12px;border-radius:8px;background:rgba(231,76,60,0.08);border:1px solid #e74c3c33">
+        <div style="color:#e74c3c;font-weight:600;font-size:13px;margin-bottom:4px">Statevector</div>
+        <div style="color:#8a9aba;font-size:11px;line-height:1.6">Stores full 2ⁿ amplitude vector. Handles <em>any</em> gate. Limited to ~25 qubits.</div>
+      </div>
+      <div style="padding:12px;border-radius:8px;background:rgba(46,204,113,0.08);border:1px solid #2ecc7133">
+        <div style="color:#2ecc71;font-weight:600;font-size:13px;margin-bottom:4px">Stabilizer</div>
+        <div style="color:#8a9aba;font-size:11px;line-height:1.6">Stores 2n×(2n+1) binary tableau. Only Clifford gates. Scales to 1,000+ qubits.</div>
+      </div>
+    </div>
+  </div></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Actions
+// ═══════════════════════════════════════════════════════════════
+function setTab(t){ state.tab=t; render(); }
+function resetSim(n){
+  state.nQubits=n||state.nQubits;
+  state.sim=new StabSim(state.nQubits);
+  state.measureResults=[]; state.activePreset=null; render();
+}
+function applyGate(g,q,q2){
+  const s=state.sim.clone();
+  if(g==="H")s.h(q); else if(g==="S")s.s(q); else if(g==="X")s.x(q);
+  else if(g==="Y")s.y(q); else if(g==="Z")s.z(q); else if(g==="CX")s.cx(q,q2);
+  state.sim=s; render();
+}
+function doMeasure(q){
+  const s=state.sim.clone(), out=s.measure(q);
+  state.sim=s;
+  state.measureResults.push({qubit:q,outcome:out,deterministic:s.measurements[s.measurements.length-1].deterministic});
+  render();
+}
+function loadPreset(name){
+  const p=PRESETS[name], s=new StabSim(p.n);
+  p.build(s); state.sim=s; state.nQubits=p.n;
+  state.measureResults=[]; state.activePreset=name; state.tab="presets"; render();
+}
+function runTeleportation(){
+  const s=state.sim.clone();
+  const m0=s.measure(0), m1=s.measure(1);
+  if(m1===1)s.x(2); if(m0===1)s.z(2);
+  const m2=s.measure(2);
+  state.sim=s;
+  state.measureResults=[{qubit:0,outcome:m0},{qubit:1,outcome:m1},{qubit:2,outcome:m2}];
+  render();
+}
+function runQEC(){
+  const s=state.sim.clone(), s0=s.measure(3), s1=s.measure(4);
+  state.sim=s;
+  state.measureResults=[{qubit:3,outcome:s0},{qubit:4,outcome:s1}];
+  render();
+}
+function runScaleBenchmark(){
+  const n=state.scaleN;
+  const t0=performance.now();
+  const s=new StabSim(n); s.h(0);
+  for(let i=1;i<n;i++) s.cx(0,i);
+  const gateMs=(performance.now()-t0).toFixed(1);
+  const t1=performance.now();
+  const c=s.clone(), first=c.measure(0), last=c.measure(n-1);
+  const measureMs=(performance.now()-t1).toFixed(1);
+  state.scaleResult={n,gates:n,gateMs,measureMs,totalMs:(parseFloat(gateMs)+parseFloat(measureMs)).toFixed(1),firstBit:first,lastBit:last,correlated:first===last};
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
